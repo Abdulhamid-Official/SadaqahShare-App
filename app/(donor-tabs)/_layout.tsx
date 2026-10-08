@@ -3,9 +3,10 @@ import { Tabs } from 'expo-router';
 import { StyleSheet, Platform, View, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { House, Landmark, Heart, User, MessageSquare } from 'lucide-react-native';
+import { House, Landmark, Heart, User, MessageSquare, Bell } from 'lucide-react-native';
 import { Colors, FontSize, Spacing, useTheme } from '@/lib/theme';
 import { useAppContext } from '@/lib/context';
+import { useNotifications } from '@/lib/notifications-context';
 
 const TAB_ITEMS = [
   { name: 'index', label: 'Home', Icon: House },
@@ -20,6 +21,7 @@ export default function DonorTabsLayout() {
   const { colors } = useTheme();
   const router = useRouter();
   const { role, authLoading, session } = useAppContext();
+  const { unreadCount } = useNotifications();
   const redirected = useRef(false);
 
   useEffect(() => {
@@ -30,7 +32,6 @@ export default function DonorTabsLayout() {
       }
     } else if (session?.user && role === 'donor') {
       redirected.current = false;
-      // Check consent — if not accepted, redirect to consent screen
       if (session.profile && (!session.profile.terms_accepted || !session.profile.privacy_accepted)) {
         router.replace('/consent' as any);
       }
@@ -88,6 +89,21 @@ export default function DonorTabsLayout() {
           }}
         />
       ))}
+      {/* Hidden notification tab — navigated to via header bell icon */}
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          href: null,
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
+      <Tabs.Screen
+        name="impact"
+        options={{
+          href: null,
+          tabBarItemStyle: { display: 'none' },
+        }}
+      />
     </Tabs>
   );
 }

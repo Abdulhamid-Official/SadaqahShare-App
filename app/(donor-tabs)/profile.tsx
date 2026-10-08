@@ -29,15 +29,18 @@ import {
   CheckCircle,
   AlertCircle,
   Calendar,
+  TrendingUp,
 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
+import { useNotifications } from '@/lib/notifications-context';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 
 export default function ProfileScreen() {
   const { donor, isAdmin, logout, session } = useAppContext();
   const { colors, isDark, toggleTheme } = useTheme();
+  const { unreadCount } = useNotifications();
   const [totalTokens, setTotalTokens] = useState(0);
   const [confirmAction, setConfirmAction] = useState<'signout' | 'switch' | null>(null);
   const [joinedMosques, setJoinedMosques] = useState<{ id: string; name: string; city: string; state: string; member_id: string }[]>([]);
@@ -225,6 +228,35 @@ export default function ProfileScreen() {
               {isDark ? <Sun size={18} color={colors.amber} /> : <Moon size={18} color={Colors.blue} />}
             </View>
             <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>{isDark ? 'Light Mode' : 'Dark Mode'}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.menuItem, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}
+            activeOpacity={0.7}
+            onPress={() => router.push('/impact' as any)}
+          >
+            <View style={[styles.menuIconCircle, { backgroundColor: Colors.primaryFaint }]}>
+              <TrendingUp size={18} color={Colors.primary} />
+            </View>
+            <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>My Impact</Text>
+            <ChevronRight size={18} color={Colors.stone400} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.menuItem, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}
+            activeOpacity={0.7}
+            onPress={() => router.push('/notifications' as any)}
+          >
+            <View style={[styles.menuIconCircle, { backgroundColor: Colors.amberFaint }]}>
+              <Bell size={18} color={Colors.amber} />
+            </View>
+            <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Notifications</Text>
+            {unreadCount > 0 && (
+              <View style={styles.unreadPill}>
+                <Text style={styles.unreadPillText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            )}
+            <ChevronRight size={18} color={Colors.stone400} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -684,6 +716,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
     paddingTop: Spacing.lg,
+  },
+  unreadPill: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.red,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    marginRight: Spacing.sm,
+  },
+  unreadPillText: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 10,
+    color: Colors.white,
   },
   // Confirmation modal
   overlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },

@@ -1,75 +1,78 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Search, Heart, Coins, Vote, Truck, Star, ChevronLeft, ArrowRight } from 'lucide-react-native';
+import {
+  ChevronLeft,
+  UserPlus,
+  Search,
+  Package,
+  CheckCircle,
+  Coins,
+  Vote,
+  ArrowRight,
+} from 'lucide-react-native';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 import { useContentWidth } from '@/lib/responsive';
 
 const STEPS = [
   {
     number: 1,
-    icon: Search,
-    title: 'Browse Mosques',
-    description:
-      'Explore verified mosques in your area or across the country. See their specific needs, from prayer rugs to HVAC systems.',
+    Icon: UserPlus,
+    title: 'Join a Mosque',
+    description: 'Browse mosques on SadaqahShare and join one using a join code from your mosque manager.',
     color: Colors.primary,
     bgColor: Colors.primaryFaint,
   },
   {
     number: 2,
-    icon: Heart,
-    title: 'Pledge a Donation',
-    description:
-      'Choose an item or monetary need and pledge your support. You can ship items directly or drop them off in person.',
-    color: '#dc2626',
-    bgColor: '#fee2e2',
+    Icon: Search,
+    title: 'Find a Need',
+    description: 'Explore the items and fundraisers your mosque has requested. Choose something you can give.',
+    color: Colors.teal,
+    bgColor: '#ccfbf1',
   },
   {
     number: 3,
-    icon: Coins,
-    title: 'Earn Tokens',
-    description:
-      'Once your pledge is fulfilled, you earn tokens tied to that mosque. Tokens represent your investment in the community.',
+    Icon: Package,
+    title: 'Drop It Off',
+    description: 'Pledge the item, then physically drop it off at the mosque. No shipping needed — just bring it.',
     color: Colors.amber,
     bgColor: Colors.amberFaint,
   },
   {
     number: 4,
-    icon: Vote,
-    title: 'Vote on Decisions',
-    description:
-      'Use your tokens to vote on mosque polls — how funds are spent, what projects to prioritize, and community decisions.',
+    Icon: CheckCircle,
+    title: 'Mosque Confirms It',
+    description: 'The mosque manager confirms they received your donation. This step verifies your contribution.',
     color: Colors.blue,
     bgColor: Colors.blueFaint,
   },
   {
     number: 5,
-    icon: Truck,
-    title: 'Ship or Drop Off',
-    description:
-      'Ship items using the purchase link provided by the mosque, or arrange a convenient drop-off time.',
-    color: Colors.teal,
-    bgColor: '#ccfbf1',
+    Icon: Coins,
+    title: 'Earn Tokens',
+    description: 'Once confirmed, you receive tokens based on the value of your donation. The more you give, the more you earn.',
+    color: Colors.amber,
+    bgColor: Colors.amberFaint,
   },
   {
     number: 6,
-    icon: Star,
-    title: 'Earn Continuous Rewards',
-    description:
-      'Every contribution becomes Sadaqah Jariyah — ongoing charity. As the mosque benefits, your rewards continue insha\'Allah.',
+    Icon: Vote,
+    title: 'Use Tokens to Vote',
+    description: 'Spend your tokens to vote on community polls and decisions. Your voice shapes what the mosque prioritizes.',
     color: Colors.primary,
     bgColor: Colors.primaryFaint,
   },
 ];
 
-export default function AboutPage() {
+export default function HowItWorksPage() {
   const router = useRouter();
   const { paddingHorizontal, maxWidth } = useContentWidth();
   const { colors } = useTheme();
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      {/* ── Header ── */}
+      {/* Header */}
       <View style={[styles.header, { paddingHorizontal }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
           <ChevronLeft size={24} color={colors.textPrimary} />
@@ -86,60 +89,70 @@ export default function AboutPage() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Intro ── */}
-        <View style={styles.intro}>
-          <Text style={[styles.introTitle, { color: colors.textPrimary }]}>The SadaqahShare Loop</Text>
+        {/* Intro */}
+        <View style={styles.introSection}>
+          <Text style={[styles.introTitle, { color: colors.textPrimary }]}>
+            The SadaqahShare Loop
+          </Text>
           <Text style={[styles.introSubtitle, { color: colors.textSecondary }]}>
-            Six simple steps that turn a single donation into ongoing charity, community engagement, and
-            continuous rewards.
+            Six simple steps from joining your mosque to shaping community decisions.
+            It's a cycle of giving that keeps giving back.
           </Text>
         </View>
 
-        {/* ── Steps ── */}
-        <View style={styles.stepsContainer}>
-          {STEPS.map((step, idx) => {
-            const Icon = step.icon;
-            const isLast = idx === STEPS.length - 1;
-
+        {/* Steps Timeline */}
+        <View style={styles.timeline}>
+          {STEPS.map((step, index) => {
+            const isLast = index === STEPS.length - 1;
             return (
               <View key={step.number} style={styles.stepRow}>
-                {/* Timeline Spine */}
-                <View style={styles.timelineCol}>
-                  <View style={[styles.stepNumberCircle, { backgroundColor: step.bgColor }]}>
-                    <Text style={[styles.stepNumber, { color: step.color }]}>{step.number}</Text>
-                  </View>
-                  {!isLast && <View style={styles.timelineLine} />}
-                </View>
+                {/* Timeline connector */}
+                {!isLast && (
+                  <View style={[styles.timelineLine, { backgroundColor: colors.cardBorder }]} />
+                )}
 
-                {/* Card */}
+                {/* Step content */}
                 <View style={[styles.stepCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
-                  <View style={[styles.stepIconWrap, { backgroundColor: step.bgColor }]}>
-                    <Icon size={22} color={step.color} />
+                  <View style={[styles.stepIconCircle, { backgroundColor: step.bgColor }]}>
+                    <step.Icon size={24} color={step.color} />
                   </View>
-                  <Text style={[styles.stepTitle, { color: colors.textPrimary }]}>{step.title}</Text>
-                  <Text style={[styles.stepDesc, { color: colors.textSecondary }]}>{step.description}</Text>
+                  <View style={styles.stepContent}>
+                    <View style={styles.stepHeader}>
+                      <View style={[styles.stepNumberBadge, { backgroundColor: step.color }]}>
+                        <Text style={styles.stepNumberText}>{step.number}</Text>
+                      </View>
+                      <Text style={[styles.stepTitle, { color: colors.textPrimary }]}>{step.title}</Text>
+                    </View>
+                    <Text style={[styles.stepDescription, { color: colors.textMuted }]}>
+                      {step.description}
+                    </Text>
+                  </View>
                 </View>
               </View>
             );
           })}
         </View>
 
-        {/* ── Bottom CTA ── */}
-        <View style={styles.bottomCta}>
-          <Text style={styles.bottomCtaTitle}>Start Your Journey Today</Text>
-          <Text style={styles.bottomCtaSubtitle}>
-            Whether you're a donor looking to give or a mosque seeking support, SadaqahShare connects you to
-            make a lasting impact.
+        {/* Flow diagram */}
+        <View style={[styles.flowCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+          <Text style={[styles.flowTitle, { color: colors.textPrimary }]}>The Cycle Continues</Text>
+          <Text style={[styles.flowText, { color: colors.textMuted }]}>
+            Every confirmed donation earns tokens. Every token becomes a vote. Every vote shapes your community.
+            Keep the loop going — give again, earn again, vote again.
           </Text>
-          <TouchableOpacity
-            style={styles.bottomCtaButton}
-            onPress={() => router.push('/role-select')}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.bottomCtaButtonText}>Get Started</Text>
-            <ArrowRight size={18} color={Colors.primary} />
-          </TouchableOpacity>
         </View>
+
+        {/* CTA */}
+        <TouchableOpacity
+          style={[styles.ctaButton, { backgroundColor: Colors.primary }]}
+          onPress={() => router.push('/role-select')}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.ctaButtonText}>Get Started</Text>
+          <ArrowRight size={18} color={Colors.white} />
+        </TouchableOpacity>
+
+        <View style={{ height: Spacing.xxxl }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -159,7 +172,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.huge,
   },
 
-  /* ── Header ── */
+  /* Header */
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -176,161 +189,135 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: 'Inter-Bold',
     fontSize: FontSize.xl,
-    color: Colors.textPrimary,
   },
 
-  /* ── Intro ── */
-  intro: {
+  /* Intro */
+  introSection: {
     alignItems: 'center',
-    paddingTop: Spacing.xl,
-    paddingBottom: Spacing.xxxl,
+    marginBottom: Spacing.xxl,
+    paddingHorizontal: Spacing.lg,
   },
   introTitle: {
     fontFamily: 'Inter-Bold',
-    fontSize: FontSize.xxxl,
-    color: Colors.textPrimary,
+    fontSize: FontSize.xxl,
+    marginBottom: Spacing.sm,
     textAlign: 'center',
-    marginBottom: Spacing.md,
   },
   introSubtitle: {
     fontFamily: 'Inter-Regular',
     fontSize: FontSize.md,
-    color: Colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 24,
-    maxWidth: 440,
+    lineHeight: 22,
+    maxWidth: 360,
   },
 
-  /* ── Steps / Timeline ── */
-  stepsContainer: {
+  /* Timeline */
+  timeline: {
     gap: 0,
   },
   stepRow: {
-    flexDirection: 'row',
-    gap: Spacing.lg,
-  },
-
-  /* Timeline Column */
-  timelineCol: {
-    alignItems: 'center',
-    width: 44,
-  },
-  stepNumberCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: Radius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepNumber: {
-    fontFamily: 'Inter-Bold',
-    fontSize: FontSize.md,
+    position: 'relative',
   },
   timelineLine: {
-    flex: 1,
+    position: 'absolute',
+    left: 36,
+    top: 64,
+    bottom: 0,
     width: 2,
-    backgroundColor: Colors.stone200,
-    marginVertical: Spacing.xs,
+    zIndex: 0,
   },
-
-  /* Step Card */
   stepCard: {
-    flex: 1,
-    backgroundColor: Colors.cardBg,
+    flexDirection: 'row',
     borderRadius: Radius.lg,
-    padding: Spacing.xl,
-    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: Colors.cardBorder,
     ...Platform.select({
-      ios: {
-        shadowColor: Colors.black,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-      },
+      ios: { shadowColor: Colors.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8 },
       android: { elevation: 2 },
-      web: {
-        shadowColor: Colors.black,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-      },
+      web: { shadowColor: Colors.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8 },
     }),
   },
-  stepIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.md,
-    alignItems: 'center',
+  stepIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     justifyContent: 'center',
-    marginBottom: Spacing.md,
+    alignItems: 'center',
+    marginRight: Spacing.md,
+    flexShrink: 0,
+  },
+  stepContent: {
+    flex: 1,
+  },
+  stepHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
+  stepNumberBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepNumberText: {
+    fontFamily: 'Inter-Bold',
+    fontSize: FontSize.xs,
+    color: Colors.white,
   },
   stepTitle: {
     fontFamily: 'Inter-SemiBold',
     fontSize: FontSize.lg,
-    color: Colors.textPrimary,
+    flex: 1,
+  },
+  stepDescription: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+  },
+
+  /* Flow card */
+  flowCard: {
+    borderRadius: Radius.lg,
+    padding: Spacing.xxl,
+    borderWidth: 1,
+    alignItems: 'center',
+    marginBottom: Spacing.xl,
+    marginTop: Spacing.md,
+  },
+  flowTitle: {
+    fontFamily: 'Inter-Bold',
+    fontSize: FontSize.lg,
     marginBottom: Spacing.sm,
   },
-  stepDesc: {
+  flowText: {
     fontFamily: 'Inter-Regular',
-    fontSize: FontSize.md,
-    color: Colors.textSecondary,
+    fontSize: FontSize.sm,
+    textAlign: 'center',
     lineHeight: 22,
   },
 
-  /* ── Bottom CTA ── */
-  bottomCta: {
-    marginTop: Spacing.xxl,
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.xl,
-    padding: Spacing.xxxl,
-    alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.25,
-        shadowRadius: 16,
-      },
-      android: { elevation: 8 },
-      web: {
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.25,
-        shadowRadius: 16,
-      },
-    }),
-  },
-  bottomCtaTitle: {
-    fontFamily: 'Inter-Bold',
-    fontSize: FontSize.xxl,
-    color: Colors.white,
-    textAlign: 'center',
-    marginBottom: Spacing.md,
-  },
-  bottomCtaSubtitle: {
-    fontFamily: 'Inter-Regular',
-    fontSize: FontSize.md,
-    color: 'rgba(255,255,255,0.85)',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: Spacing.xxl,
-    maxWidth: 400,
-  },
-  bottomCtaButton: {
+  /* CTA */
+  ctaButton: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: Spacing.sm,
-    backgroundColor: Colors.white,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.xxl,
-    borderRadius: Radius.xl,
-    minHeight: 48,
+    paddingVertical: Spacing.lg,
+    borderRadius: Radius.lg,
+    minHeight: 52,
+    ...Platform.select({
+      ios: { shadowColor: Colors.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 6 },
+      android: { elevation: 3 },
+      web: { shadowColor: Colors.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 6 },
+    }),
   },
-  bottomCtaButtonText: {
+  ctaButtonText: {
     fontFamily: 'Inter-SemiBold',
     fontSize: FontSize.lg,
-    color: Colors.primary,
+    color: Colors.white,
   },
 });

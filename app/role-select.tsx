@@ -1,9 +1,11 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { useState } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Platform, TextInput, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Heart, Building2, ChevronLeft, Check } from 'lucide-react-native';
+import { Heart, Building2, ChevronLeft, Check, Shield, X } from 'lucide-react-native';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 import { useDeviceSize, useContentWidth } from '@/lib/responsive';
+import { useAppContext } from '@/lib/context';
 
 const DONOR_BENEFITS = [
   'Browse mosques and their specific needs',
@@ -21,12 +23,32 @@ const MOSQUE_BENEFITS = [
   'Build a transparent, engaged community',
 ];
 
+const ADMIN_CODE = 'SadaqahShareAdmin_2026';
+
 export default function RoleSelectPage() {
   const router = useRouter();
   const deviceSize = useDeviceSize();
   const { paddingHorizontal, maxWidth } = useContentWidth();
   const { colors } = useTheme();
+  const { setIsAdmin, setRole } = useAppContext();
   const isWide = deviceSize !== 'phone';
+
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [adminCode, setAdminCode] = useState('');
+  const [adminError, setAdminError] = useState('');
+
+  const handleAdminLogin = () => {
+    if (adminCode.trim() === ADMIN_CODE) {
+      setIsAdmin(true);
+      setRole('mosque');
+      setAdminError('');
+      setAdminCode('');
+      setShowAdminModal(false);
+      router.replace('/(mosque-tabs)');
+    } else {
+      setAdminError('Invalid admin code');
+    }
+  };
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
@@ -112,7 +134,50 @@ export default function RoleSelectPage() {
             </View>
           </View>
         </View>
+
+        {/* Admin Demo Access */}
+        <TouchableOpacity
+          style={[styles.adminLink, { borderColor: colors.cardBorder }]}
+          activeOpacity={0.7}
+          onPress={() => setShowAdminModal(true)}
+        >
+          <Shield size={16} color={colors.textMuted} />
+          <Text style={[styles.adminLinkText, { color: colors.textMuted }]}>Admin / Demo Access</Text>
+        </TouchableOpacity>
       </ScrollView>
+
+      {/* Admin Login Modal */}
+      <Modal visible={showAdminModal} transparent animationType="fade">
+        <View style={styles.overlay}>
+          <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={() => setShowAdminModal(false)} />
+          <View style={[styles.adminModal, { backgroundColor: colors.cardBg }]}>
+            <TouchableOpacity style={styles.adminCloseBtn} onPress={() => setShowAdminModal(false)}>
+              <X size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <View style={styles.adminIconCircle}>
+              <Shield size={28} color={Colors.primary} />
+            </View>
+            <Text style={[styles.adminTitle, { color: colors.textPrimary }]}>Admin / Demo Mode</Text>
+            <Text style={[styles.adminSubtitle, { color: colors.textMuted }]}>
+              Enter the admin access code to try SadaqahShare in demo mode with unlimited tokens and no payment required.
+            </Text>
+            <TextInput
+              style={[styles.adminInput, { color: colors.textPrimary, borderColor: adminError ? Colors.red : colors.cardBorder }]}
+              value={adminCode}
+              onChangeText={(text) => { setAdminCode(text); setAdminError(''); }}
+              placeholder="Enter admin code"
+              placeholderTextColor={colors.textMuted}
+              secureTextEntry
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {adminError ? <Text style={styles.adminError}>{adminError}</Text> : null}
+            <TouchableOpacity style={styles.adminBtn} activeOpacity={0.85} onPress={handleAdminLogin}>
+              <Text style={styles.adminBtnText}>Enter Demo Mode</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -276,6 +341,103 @@ const styles = StyleSheet.create({
   ctaButtonText: {
     fontFamily: 'Inter-SemiBold',
     fontSize: FontSize.lg,
+    color: Colors.white,
+  },
+
+  /* ── Admin / Demo ── */
+  adminLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.xl,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    borderStyle: 'dashed',
+  },
+  adminLinkText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSize.sm,
+  },
+  overlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  adminModal: {
+    borderRadius: Radius.xl,
+    padding: Spacing.xxl,
+    width: '90%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  adminCloseBtn: {
+    position: 'absolute',
+    top: Spacing.md,
+    right: Spacing.md,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.stone100,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  adminIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.primaryFaint,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  adminTitle: {
+    fontFamily: 'Inter-Bold',
+    fontSize: FontSize.xl,
+    marginBottom: Spacing.xs,
+  },
+  adminSubtitle: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSize.sm,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: Spacing.lg,
+  },
+  adminInput: {
+    width: '100%',
+    borderWidth: 1.5,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSize.md,
+    minHeight: 48,
+  },
+  adminError: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSize.sm,
+    color: Colors.red,
+    marginTop: Spacing.xs,
+  },
+  adminBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xxl,
+    marginTop: Spacing.lg,
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+  },
+  adminBtnText: {
+    fontFamily: 'Inter-Bold',
+    fontSize: FontSize.md,
     color: Colors.white,
   },
 });

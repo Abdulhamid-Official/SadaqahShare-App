@@ -21,9 +21,12 @@ import {
   Star,
   BarChart3,
   Megaphone,
+  Bell,
+  TrendingUp,
 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
+import { useNotifications } from '@/lib/notifications-context';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 import { DonorMosqueToken, Mosque, Pledge, Poll, PollOption, Vote, Need } from '@/lib/types';
@@ -52,6 +55,7 @@ interface Stats {
 export default function DonorHomeScreen() {
   const { donor, isAdmin } = useAppContext();
   const { colors } = useTheme();
+  const { unreadCount } = useNotifications();
 
   const [tokens, setTokens] = useState<TokenWithMosque[]>([]);
   const [stats, setStats] = useState<Stats>({ itemsPledged: 0, tokensEarned: 0, totalPledges: 0 });
@@ -260,6 +264,31 @@ export default function DonorHomeScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
+        {/* Top Action Bar */}
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            style={styles.topBarBtn}
+            activeOpacity={0.7}
+            onPress={() => router.push('/impact' as any)}
+          >
+            <TrendingUp size={22} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.topBarBtn}
+            activeOpacity={0.7}
+            onPress={() => router.push('/notifications' as any)}
+          >
+            <Bell size={22} color={colors.textPrimary} />
+            {unreadCount > 0 && (
+              <View style={styles.notifBadge}>
+                <Text style={styles.notifBadgeText}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
         {/* Welcome Banner */}
         <View style={styles.welcomeBanner}>
           <View style={styles.welcomeContent}>
@@ -536,6 +565,38 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  topBarBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: Colors.stone100,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notifBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: Colors.red,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  notifBadgeText: {
+    fontFamily: 'Inter-Bold',
+    fontSize: 10,
+    color: Colors.white,
   },
   scrollPadding: {
     paddingHorizontal: Spacing.lg,

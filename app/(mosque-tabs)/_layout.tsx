@@ -34,6 +34,7 @@ export default function MosqueTabsLayout() {
   const router = useRouter();
   const { mosqueAccount, isAdmin, role, authLoading, session } = useAppContext();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadPledges, setUnreadPledges] = useState(0);
   const redirected = useRef(false);
 
   const mosqueId = mosqueAccount?.mosque_id;
@@ -55,16 +56,26 @@ export default function MosqueTabsLayout() {
   }, [authLoading, session, role, router]);
 
   const fetchUnread = useCallback(async () => {
-    if (!mosqueId || isAdmin) { setUnreadCount(0); return; }
+    if (!mosqueId || isAdmin) { setUnreadCount(0); setUnreadPledges(0); return; }
     try {
-      const { count, error } = await supabase
-        .from('donor_requests')
-        .select('id', { count: 'exact', head: true })
-        .eq('mosque_id', mosqueId)
-        .eq('archived', false)
-        .is('read_at', null);
-      if (!error && count !== null) {
-        setUnreadCount(count);
+      const [reqRes, pledgeRes] = await Promise.all([
+        supabase
+          .from('donor_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('mosque_id', mosqueId)
+          .eq('archived', false)
+          .is('read_at', null),
+        supabase
+          .from('pledges')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'pending')
+          .in('need_id', (await supabase.from('needs').select('id').eq('mosque_id', mosqueId)).data?.map((n: any) => n.id) || [])
+      ]);
+      if (!reqRes.error && reqRes.count !== null) {
+        setUnreadCount(reqRes.count);
+      }
+      if (!pledgeRes.error && pledgeRes.count !== null) {
+        setUnreadPledges(pledgeRes.count);
       }
     } catch (err) {
       // Silent fail — dot is a nice-to-have
@@ -84,6 +95,10 @@ export default function MosqueTabsLayout() {
       .channel('mosque-unread-requests')
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'donor_requests', filter: `mosque_id=eq.${mosqueId}` },
+        () => { fetchUnread(); }
+      )
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'pledges' },
         () => { fetchUnread(); }
       )
       .subscribe();
@@ -151,6 +166,7 @@ export default function MosqueTabsLayout() {
                   strokeWidth={focused ? 2.5 : 2}
                 />
                 {name === 'requests' && unreadCount > 0 && <UnreadDot />}
+                {name === 'pledges' && unreadPledges > 0 && <UnreadDot />}
               </View>
             ),
           }}
