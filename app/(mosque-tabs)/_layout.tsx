@@ -10,7 +10,6 @@ import {
   Users,
   MessageSquare,
   Settings,
-  Megaphone,
 } from 'lucide-react-native';
 import { Colors, Spacing, useTheme } from '@/lib/theme';
 import { supabase } from '@/lib/supabase';
@@ -37,7 +36,9 @@ export default function MosqueTabsLayout() {
   const [unreadCount, setUnreadCount] = useState(0);
   const redirected = useRef(false);
 
-  // Route protection
+  const mosqueId = mosqueAccount?.mosque_id;
+
+  // Route protection — must be before early return
   useEffect(() => {
     if (!authLoading && (!session?.user || role !== 'mosque')) {
       if (!redirected.current) {
@@ -48,16 +49,6 @@ export default function MosqueTabsLayout() {
       redirected.current = false;
     }
   }, [authLoading, session, role, router]);
-
-  if (authLoading || !session?.user || role !== 'mosque') {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-        <ActivityIndicator size="large" color={Colors.teal} />
-      </View>
-    );
-  }
-
-  const mosqueId = mosqueAccount?.mosque_id;
 
   const fetchUnread = useCallback(async () => {
     if (!mosqueId || isAdmin) { setUnreadCount(0); return; }
@@ -98,12 +89,21 @@ export default function MosqueTabsLayout() {
     };
   }, [mosqueId, isAdmin, fetchUnread]);
 
+  // Early return AFTER all hooks
+  if (authLoading || !session?.user || role !== 'mosque') {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={Colors.teal} />
+      </View>
+    );
+  }
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.teal,
-        tabBarInactiveTintColor: colors.stone400,
+        tabBarInactiveTintColor: Colors.stone400,
         tabBarStyle: {
           backgroundColor: colors.tabBarBg,
           borderTopWidth: StyleSheet.hairlineWidth,
