@@ -51,6 +51,10 @@ export default function TermsScreen() {
         <Text style={[styles.body, { color: colors.textSecondary }]}>
           We may update these Terms from time to time. Continued use of the platform after changes constitutes acceptance of the new Terms.
         </Text>
+        <Text style={[styles.heading, { color: colors.textPrimary }]}>9. Contact Us</Text>
+        <Text style={[styles.body, { color: colors.textSecondary }]}>
+          If you have questions about these Terms, please contact us at SadaqahShare@protonmail.com.
+        </Text>
         <View style={{ height: Spacing.xxxl }} />
       </ScrollView>
     </SafeAreaView>

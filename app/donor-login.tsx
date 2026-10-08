@@ -139,7 +139,7 @@ export default function DonorLoginScreen() {
 
       if (donorErr) {
         console.error('Donor creation error:', donorErr);
-        setError('Account created but profile setup failed. Please contact support.');
+        setError('Account created but profile setup failed. Please contact support at SadaqahShare@protonmail.com.');
         return;
       }
       donorId = newDonor.id;

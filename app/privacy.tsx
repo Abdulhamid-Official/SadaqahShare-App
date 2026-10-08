@@ -50,6 +50,10 @@ export default function PrivacyScreen() {
         <Text style={[styles.body, { color: colors.textSecondary }]}>
           We may update this Privacy Policy from time to time. Continued use after changes constitutes acceptance of the updated policy.
         </Text>
+        <Text style={[styles.heading, { color: colors.textPrimary }]}>9. Contact Us</Text>
+        <Text style={[styles.body, { color: colors.textSecondary }]}>
+          If you have questions about your data or this Privacy Policy, please contact us at SadaqahShare@protonmail.com.
+        </Text>
         <View style={{ height: Spacing.xxxl }} />
       </ScrollView>
     </SafeAreaView>

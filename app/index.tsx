@@ -1,9 +1,11 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Platform, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import Animated, { useAnimatedStyle, withSpring, withDelay, interpolate } from 'react-native-reanimated';
 import { Heart, Vote, Gift, Eye, BookOpen, Droplets, GraduationCap, ArrowRight, Sparkles } from 'lucide-react-native';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 import { useContentWidth } from '@/lib/responsive';
+import { useFadeInUp, useScaleIn } from '@/hooks/useEntranceAnimation';
 
 const HOW_IT_HELPS = [
   {
@@ -55,10 +57,22 @@ const JARIYAH_TYPES = [
   },
 ];
 
+const springCfg = { damping: 18, stiffness: 120, mass: 0.8 };
+
 export default function LandingPage() {
   const router = useRouter();
   const { paddingHorizontal, maxWidth } = useContentWidth();
   const { colors } = useTheme();
+  const heroStyle = useFadeInUp(0, 30);
+  const pillStyle = useScaleIn(100);
+  const ctaStyle = useFadeInUp(400, 20);
+  const sectionStyle = useFadeInUp(500, 20);
+  const bottomCtaStyle = useFadeInUp(800, 20);
+  const helpCard0 = useFadeInUp(600, 20);
+  const helpCard1 = useFadeInUp(680, 20);
+  const helpCard2 = useFadeInUp(760, 20);
+  const helpCard3 = useFadeInUp(840, 20);
+  const helpCardStyles = [helpCard0, helpCard1, helpCard2, helpCard3];
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
@@ -68,11 +82,11 @@ export default function LandingPage() {
         showsVerticalScrollIndicator={false}
       >
         {/* ===== HERO SECTION ===== */}
-        <View style={[styles.heroSection, { paddingHorizontal }]}>
-          <View style={styles.pill}>
+        <Animated.View style={[styles.heroSection, { paddingHorizontal }, heroStyle]}>
+          <Animated.View style={[styles.pill, pillStyle]}>
             <Sparkles size={14} color={Colors.primary} />
             <Text style={styles.pillText}>Sadaqah Jariyah — Continuous Charity</Text>
-          </View>
+          </Animated.View>
 
           <Text style={[styles.heroTitle, { color: colors.textPrimary }]}>
             Give Once,{'\n'}
@@ -85,18 +99,20 @@ export default function LandingPage() {
           </Text>
           <Text style={[styles.heroQuoteSource, { color: colors.textMuted }]}>— Sahih Muslim 1631</Text>
 
-          <TouchableOpacity
-            style={styles.heroCta}
-            onPress={() => router.push('/role-select')}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.heroCtaText}>Begin Your Journey</Text>
-            <ArrowRight size={20} color={Colors.white} />
-          </TouchableOpacity>
-        </View>
+          <Animated.View style={ctaStyle}>
+            <TouchableOpacity
+              style={styles.heroCta}
+              onPress={() => router.push('/role-select')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.heroCtaText}>Begin Your Journey</Text>
+              <ArrowRight size={20} color={Colors.white} />
+            </TouchableOpacity>
+          </Animated.View>
+        </Animated.View>
 
         {/* ===== HOW IT HELPS ===== */}
-        <View style={[styles.section, { paddingHorizontal }]}>
+        <Animated.View style={[styles.section, { paddingHorizontal }, sectionStyle]}>
           <Text style={styles.sectionLabel}>WHY SADAQAHSHARE</Text>
           <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>How SadaqahShare Helps</Text>
 
@@ -104,17 +120,20 @@ export default function LandingPage() {
             {HOW_IT_HELPS.map((item, idx) => {
               const Icon = item.icon;
               return (
-                <View key={idx} style={[styles.helpCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+                <Animated.View 
+                  key={idx} 
+                  style={[styles.helpCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }, helpCardStyles[idx]]}
+                >
                   <View style={styles.helpIconWrap}>
                     <Icon size={24} color={Colors.primary} />
                   </View>
                   <Text style={[styles.helpCardTitle, { color: colors.textPrimary }]}>{item.title}</Text>
                   <Text style={[styles.helpCardDesc, { color: colors.textSecondary }]}>{item.description}</Text>
-                </View>
+                </Animated.View>
               );
             })}
           </View>
-        </View>
+        </Animated.View>
 
         {/* ===== WHAT IS SADAQAH JARIYAH ===== */}
         <View style={[styles.section, { paddingHorizontal }]}>
@@ -142,7 +161,7 @@ export default function LandingPage() {
         </View>
 
         {/* ===== BOTTOM CTA ===== */}
-        <View style={[styles.bottomCta, { marginHorizontal: paddingHorizontal }]}>
+        <Animated.View style={[styles.bottomCta, { marginHorizontal: paddingHorizontal }, bottomCtaStyle]}>
           <Text style={styles.bottomCtaTitle}>Ready to Make an Impact?</Text>
           <Text style={styles.bottomCtaSubtitle}>
             Join a growing community of donors and mosques building a better future together.
@@ -155,13 +174,16 @@ export default function LandingPage() {
             <Text style={styles.bottomCtaButtonText}>Get Started</Text>
             <ArrowRight size={18} color={Colors.primary} />
           </TouchableOpacity>
-        </View>
+        </Animated.View>
 
         <View style={styles.footer}>
           <TouchableOpacity onPress={() => router.push('/about')} activeOpacity={0.7}>
             <Text style={styles.footerLink}>How It Works</Text>
           </TouchableOpacity>
           <Text style={[styles.footerCopy, { color: colors.textMuted }]}>© {new Date().getFullYear()} SadaqahShare</Text>
+          <TouchableOpacity onPress={() => Linking.openURL('mailto:SadaqahShare@protonmail.com').catch(() => {})} activeOpacity={0.7}>
+            <Text style={[styles.footerCopy, { color: colors.textMuted }]}>SadaqahShare@protonmail.com</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>

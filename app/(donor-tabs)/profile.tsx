@@ -36,6 +36,7 @@ import { useAppContext } from '@/lib/context';
 import { useNotifications } from '@/lib/notifications-context';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
+import { SupportContact } from '@/components/SupportContact';
 
 export default function ProfileScreen() {
   const { donor, isAdmin, logout, session } = useAppContext();
@@ -474,9 +475,13 @@ export default function ProfileScreen() {
           )}
         </View>
 
+        <Text style={[styles.menuSectionTitle, { color: colors.textMuted }]}>Support</Text>
+        <SupportContact variant="card" showReportBug />
+
         <Text style={[styles.footerText, { color: colors.textMuted }]}>
           SadaqahShare — Connecting generous hearts with mosque needs
         </Text>
+        <SupportContact variant="footer" />
       </ScrollView>
 
       {/* Confirmation Modal */}

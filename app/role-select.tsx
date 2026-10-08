@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Platform, TextInput, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import Animated from 'react-native-reanimated';
 import { Heart, Building2, ChevronLeft, Check, Shield, X } from 'lucide-react-native';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 import { useDeviceSize, useContentWidth } from '@/lib/responsive';
 import { useAppContext } from '@/lib/context';
+import { useFadeInUp, useScaleIn } from '@/hooks/useEntranceAnimation';
 
 const DONOR_BENEFITS = [
   'Browse mosques and their specific needs',
@@ -32,6 +34,10 @@ export default function RoleSelectPage() {
   const { colors } = useTheme();
   const { setIsAdmin, setRole } = useAppContext();
   const isWide = deviceSize !== 'phone';
+  const donorCardStyle = useScaleIn(0);
+  const mosqueCardStyle = useScaleIn(120);
+  const subtitleStyle = useFadeInUp(0, 16);
+  const adminLinkStyle = useFadeInUp(400, 16);
 
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [adminCode, setAdminCode] = useState('');
@@ -69,13 +75,13 @@ export default function RoleSelectPage() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+        <Animated.Text style={[styles.subtitle, { color: colors.textSecondary }, subtitleStyle]}>
           Select how you'd like to use SadaqahShare. You can always switch roles later.
-        </Text>
+        </Animated.Text>
 
         <View style={[styles.cardRow, isWide && styles.cardRowWide]}>
           {/* ── Donor Card ── */}
-          <View style={[styles.card, isWide && styles.cardHalf, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+          <Animated.View style={[styles.card, isWide && styles.cardHalf, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }, donorCardStyle]}>
             <View style={[styles.cardHeader, { backgroundColor: Colors.primary }]}>
               <View style={styles.cardIconWrap}>
                 <Heart size={32} color={Colors.white} />
@@ -102,10 +108,10 @@ export default function RoleSelectPage() {
                 <Text style={styles.ctaButtonText}>Continue as Donor</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </Animated.View>
 
           {/* ── Mosque Card ── */}
-          <View style={[styles.card, isWide && styles.cardHalf, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+          <Animated.View style={[styles.card, isWide && styles.cardHalf, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }, mosqueCardStyle]}>
             <View style={[styles.cardHeader, { backgroundColor: Colors.teal }]}>
               <View style={styles.cardIconWrap}>
                 <Building2 size={32} color={Colors.white} />
@@ -132,18 +138,20 @@ export default function RoleSelectPage() {
                 <Text style={styles.ctaButtonText}>Continue as Mosque</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </Animated.View>
         </View>
 
-        {/* Admin Demo Access */}
-        <TouchableOpacity
-          style={[styles.adminLink, { borderColor: colors.cardBorder }]}
-          activeOpacity={0.7}
-          onPress={() => setShowAdminModal(true)}
-        >
-          <Shield size={16} color={colors.textMuted} />
-          <Text style={[styles.adminLinkText, { color: colors.textMuted }]}>Admin / Demo Access</Text>
-        </TouchableOpacity>
+          {/* Admin Demo Access */}
+          <Animated.View style={[styles.adminLink, { borderColor: colors.cardBorder }, adminLinkStyle]}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setShowAdminModal(true)}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}
+            >
+              <Shield size={16} color={colors.textMuted} />
+              <Text style={[styles.adminLinkText, { color: colors.textMuted }]}>Admin / Demo Access</Text>
+            </TouchableOpacity>
+          </Animated.View>
       </ScrollView>
 
       {/* Admin Login Modal */}

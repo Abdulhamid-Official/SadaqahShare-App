@@ -223,6 +223,10 @@ export default function MosqueLoginScreen() {
                 >
                   <Text style={styles.registerButtonText}>Register Your Mosque</Text>
                 </TouchableOpacity>
+
+                <Text style={[styles.supportHint, { color: colors.textMuted }]}>
+                  Need help? Contact us at SadaqahShare@protonmail.com
+                </Text>
               </>
             )}
 
@@ -437,6 +441,13 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-SemiBold',
     fontSize: FontSize.sm,
     color: Colors.teal,
+  },
+  supportHint: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSize.xs,
+    textAlign: 'center',
+    marginTop: Spacing.lg,
+    lineHeight: 18,
   },
   welcomeContainer: { alignItems: 'center', marginBottom: Spacing.xxl },
   checkCircle: { marginBottom: Spacing.lg },

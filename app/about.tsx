@@ -13,6 +13,7 @@ import {
 } from 'lucide-react-native';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 import { useContentWidth } from '@/lib/responsive';
+import { SupportContact } from '@/components/SupportContact';
 
 const STEPS = [
   {
@@ -152,6 +153,8 @@ export default function HowItWorksPage() {
           <ArrowRight size={18} color={Colors.white} />
         </TouchableOpacity>
 
+        <View style={{ height: Spacing.xxl }} />
+        <SupportContact variant="footer" />
         <View style={{ height: Spacing.xxxl }} />
       </ScrollView>
     </SafeAreaView>

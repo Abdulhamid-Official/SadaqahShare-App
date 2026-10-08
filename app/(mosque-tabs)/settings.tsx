@@ -35,6 +35,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
+import { SupportContact } from '@/components/SupportContact';
 
 export default function SettingsScreen() {
   const { mosqueAccount, mosqueName, mosqueCity, mosqueState, isPaid, isAdmin, logout, session } =
@@ -361,9 +362,13 @@ export default function SettingsScreen() {
           )}
         </View>
 
+        <Text style={[styles.menuSectionTitle, { color: colors.textMuted }]}>Support</Text>
+        <SupportContact variant="card" showReportBug />
+
         <Text style={[styles.footerText, { color: colors.stone400 }]}>
           SadaqahShare — Empowering mosques, connecting communities
         </Text>
+        <SupportContact variant="footer" />
       </ScrollView>
 
       {/* Confirmation Modal */}
