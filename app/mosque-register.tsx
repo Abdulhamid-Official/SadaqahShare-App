@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { useSafeBack } from '@/lib/navigation';
 import {
   ArrowLeft,
   Lock,
@@ -125,6 +126,7 @@ export default function MosqueRegisterScreen() {
 
   // Focus tracking
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const goBack = useSafeBack('/mosque-login');
 
   const cardMaxWidth = deviceSize !== 'phone' ? 600 : undefined;
 
@@ -371,7 +373,7 @@ export default function MosqueRegisterScreen() {
             {/* Back Button */}
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => router.back()}
+              onPress={goBack}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <ArrowLeft size={22} color={Colors.stone600} />

@@ -32,6 +32,7 @@ import { useAppContext } from '@/lib/context';
 import { useDeviceSize, useContentWidth } from '@/lib/responsive';
 import PledgeModal from '@/components/PledgeModal';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
+import { useSafeBack } from '@/lib/navigation';
 
 type TabKey = 'item' | 'money';
 
@@ -59,6 +60,7 @@ export default function MosqueDetailScreen() {
   const [isMember, setIsMember] = useState(false);
   const { donor, isAdmin } = useAppContext();
   const { colors } = useTheme();
+  const goBack = useSafeBack('/(donor-tabs)/mosques');
 
   const loadData = useCallback(async () => {
     if (!id) return;
@@ -316,7 +318,7 @@ export default function MosqueDetailScreen() {
     return (
       <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
         <View style={[styles.topBar, { paddingHorizontal }]}>
-          <TouchableOpacity style={[styles.backBtn, { backgroundColor: colors.inputBg }]} onPress={() => router.back()} activeOpacity={0.7}>
+          <TouchableOpacity style={[styles.backBtn, { backgroundColor: colors.inputBg }]} onPress={goBack} activeOpacity={0.7}>
             <ArrowLeft size={22} color={Colors.textPrimary} />
           </TouchableOpacity>
         </View>
@@ -349,7 +351,7 @@ export default function MosqueDetailScreen() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top']}>
       {/* Back bar */}
       <View style={[styles.topBar, { paddingHorizontal }]}>
-        <TouchableOpacity style={[styles.backBtn, { backgroundColor: colors.inputBg }]} onPress={() => router.back()} activeOpacity={0.7}>
+        <TouchableOpacity style={[styles.backBtn, { backgroundColor: colors.inputBg }]} onPress={goBack} activeOpacity={0.7}>
           <ArrowLeft size={22} color={Colors.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.topBarTitle, { color: colors.textPrimary }]} numberOfLines={1}>

@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Platform, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import Animated, { useAnimatedStyle, withSpring, withDelay, interpolate } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Heart, Vote, Gift, Eye, BookOpen, Droplets, GraduationCap, ArrowRight, Sparkles } from 'lucide-react-native';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 import { useContentWidth } from '@/lib/responsive';
@@ -56,8 +56,6 @@ const JARIYAH_TYPES = [
     bgColor: Colors.amberFaint,
   },
 ];
-
-const springCfg = { damping: 18, stiffness: 120, mass: 0.8 };
 
 export default function LandingPage() {
   const router = useRouter();

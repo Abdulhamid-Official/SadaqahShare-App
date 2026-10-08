@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Key, RefreshCw, Copy, Check } from 'lucide-react-native';
 import { router } from 'expo-router';
+import { useSafeBack } from '@/lib/navigation';
 import * as Clipboard from 'expo-clipboard';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
@@ -28,6 +29,7 @@ export default function JoinCodeScreen() {
   const { mosqueAccount, isAdmin } = useAppContext();
   const mosqueId = mosqueAccount?.mosque_id;
   const { colors } = useTheme();
+  const goBack = useSafeBack('/(mosque-tabs)');
 
   const [joinCode, setJoinCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -94,7 +96,7 @@ export default function JoinCodeScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={goBack} style={styles.backBtn}>
           <ArrowLeft size={22} color={colors.stone600} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Join Code</Text>

@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Heart, ArrowLeft, Eye, EyeOff, MailWarning } from 'lucide-react-native';
+import { useSafeBack } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
@@ -40,6 +41,7 @@ export default function DonorLoginScreen() {
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const goBack = useSafeBack('/role-select');
 
   const switchMode = (newMode: Mode) => {
     setMode(newMode);
@@ -258,7 +260,7 @@ export default function DonorLoginScreen() {
         >
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={goBack}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <ArrowLeft size={22} color={Colors.stone600} />

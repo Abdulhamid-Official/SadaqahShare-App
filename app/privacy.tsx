@@ -4,14 +4,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { Colors, Spacing, FontSize, useTheme } from '@/lib/theme';
+import { useSafeBack } from '@/lib/navigation';
 
 export default function PrivacyScreen() {
   const { colors } = useTheme();
+  const goBack = useSafeBack('/');
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
           <ArrowLeft size={22} color={colors.stone600} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Privacy Policy</Text>

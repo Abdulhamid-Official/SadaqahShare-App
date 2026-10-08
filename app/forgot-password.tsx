@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ArrowLeft, MailCheck, KeyRound } from 'lucide-react-native';
+import { useSafeBack } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 
@@ -23,6 +24,7 @@ export default function ForgotPasswordScreen() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const goBack = useSafeBack('/mosque-login');
 
   const handleSubmit = async () => {
     const trimmedEmail = email.trim().toLowerCase();
@@ -67,7 +69,7 @@ export default function ForgotPasswordScreen() {
         >
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={goBack}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <ArrowLeft size={22} color={Colors.stone600} />

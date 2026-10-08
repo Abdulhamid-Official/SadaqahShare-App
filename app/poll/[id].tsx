@@ -16,6 +16,7 @@ import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 import { Poll, PollOption, Vote, Mosque } from '@/lib/types';
 import VoteModal from '@/components/VoteModal';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
+import { useSafeBack } from '@/lib/navigation';
 
 interface PollFull extends Poll {
   poll_options: (PollOption & { votes: Pick<Vote, 'tokens_spent'>[] })[];
@@ -27,6 +28,7 @@ export default function PollVoteScreen() {
   const router = useRouter();
   const { donor, isAdmin } = useAppContext();
   const { colors } = useTheme();
+  const goBack = useSafeBack('/(donor-tabs)');
 
   const [poll, setPoll] = useState<PollFull | null>(null);
   const [loading, setLoading] = useState(true);
@@ -94,14 +96,14 @@ export default function PollVoteScreen() {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
+          <TouchableOpacity onPress={goBack} activeOpacity={0.7}>
             <ArrowLeft size={24} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
         <View style={styles.errorContainer}>
           <Text style={[styles.errorTitle, { color: colors.textPrimary }]}>Poll Not Found</Text>
           <Text style={[styles.errorMsg, { color: colors.textMuted }]}>{error ?? 'This poll may have been removed.'}</Text>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.backBtn} onPress={goBack} activeOpacity={0.7}>
             <Text style={styles.backBtnText}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -119,7 +121,7 @@ export default function PollVoteScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
+        <TouchableOpacity onPress={goBack} activeOpacity={0.7}>
           <ArrowLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Vote</Text>

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { useSafeBack } from '@/lib/navigation';
 import { Building2, ArrowLeft, Eye, EyeOff, MailWarning } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
@@ -35,6 +36,7 @@ export default function MosqueLoginScreen() {
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const goBack = useSafeBack('/role-select');
 
   const handleSignIn = async () => {
     const trimmedEmail = email.trim().toLowerCase();
@@ -129,7 +131,7 @@ export default function MosqueLoginScreen() {
         >
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={goBack}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <ArrowLeft size={22} color={Colors.stone600} />

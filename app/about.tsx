@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useSafeBack } from '@/lib/navigation';
 import {
   ChevronLeft,
   UserPlus,
@@ -68,6 +69,7 @@ const STEPS = [
 
 export default function HowItWorksPage() {
   const router = useRouter();
+  const goBack = useSafeBack('/');
   const { paddingHorizontal, maxWidth } = useContentWidth();
   const { colors } = useTheme();
 
@@ -75,7 +77,7 @@ export default function HowItWorksPage() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { paddingHorizontal }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
+        <TouchableOpacity onPress={goBack} style={styles.backButton} activeOpacity={0.7}>
           <ChevronLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>How It Works</Text>

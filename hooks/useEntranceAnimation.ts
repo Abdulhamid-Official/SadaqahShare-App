@@ -46,21 +46,3 @@ export function useScaleIn(delay = 0) {
 
   return style;
 }
-
-export function useStaggeredFadeInUp(count: number, baseDelay = 0, stagger = 60) {
-  const progress = useSharedValue(0);
-
-  useEffect(() => {
-    progress.value = 1;
-  }, []);
-
-  const getStyle = (index: number) => {
-    'worklet';
-    return {
-      opacity: withDelay(baseDelay + index * stagger, withSpring(1, SPRING_CONFIG)),
-      transform: [{ translateY: withDelay(baseDelay + index * stagger, withSpring(0, SPRING_CONFIG)) }],
-    };
-  };
-
-  return { progress, getStyle };
-}

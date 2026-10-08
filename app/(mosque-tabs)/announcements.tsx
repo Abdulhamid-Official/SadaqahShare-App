@@ -23,6 +23,7 @@ import {
   ArrowLeft,
 } from 'lucide-react-native';
 import { router } from 'expo-router';
+import { useSafeBack } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
@@ -35,6 +36,7 @@ export default function AnnouncementsScreen() {
   const { mosqueAccount, isAdmin, isPaid } = useAppContext();
   const { paddingHorizontal, maxWidth } = useContentWidth();
   const { colors } = useTheme();
+  const goBack = useSafeBack('/(mosque-tabs)');
 
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -241,7 +243,7 @@ export default function AnnouncementsScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={[styles.container, { paddingHorizontal, maxWidth, alignSelf: maxWidth ? 'center' : undefined, width: maxWidth ? '100%' : undefined }]}>
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
+          <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
             <ArrowLeft size={22} color={colors.stone600} />
           </TouchableOpacity>
           <Text style={[styles.screenTitle, { color: colors.textPrimary }]}>Announcements</Text>

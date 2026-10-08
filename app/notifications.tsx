@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { useSafeBack } from '@/lib/navigation';
 import {
   ArrowLeft,
   Bell,
@@ -74,6 +75,7 @@ export default function NotificationsScreen() {
   const { donor, isAdmin } = useAppContext();
   const { colors } = useTheme();
   const { paddingHorizontal, maxWidth } = useContentWidth();
+  const goBack = useSafeBack('/(donor-tabs)');
   const { unreadCount, markAllRead, markRead, refreshUnread } = useNotifications();
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -210,7 +212,7 @@ export default function NotificationsScreen() {
         ]}
       >
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
+          <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
             <ArrowLeft size={22} color={colors.stone600} />
           </TouchableOpacity>
           <Text style={[styles.screenTitle, { color: colors.textPrimary }]}>Notifications</Text>

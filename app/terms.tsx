@@ -5,14 +5,16 @@ import { router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import { TouchableOpacity } from 'react-native';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
+import { useSafeBack } from '@/lib/navigation';
 
 export default function TermsScreen() {
   const { colors } = useTheme();
+  const goBack = useSafeBack('/');
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
           <ArrowLeft size={22} color={colors.stone600} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Terms of Service</Text>

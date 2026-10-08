@@ -7,6 +7,7 @@ import { Heart, Building2, ChevronLeft, Check, Shield, X } from 'lucide-react-na
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 import { useDeviceSize, useContentWidth } from '@/lib/responsive';
 import { useAppContext } from '@/lib/context';
+import { useSafeBack } from '@/lib/navigation';
 import { useFadeInUp, useScaleIn } from '@/hooks/useEntranceAnimation';
 
 const DONOR_BENEFITS = [
@@ -38,6 +39,7 @@ export default function RoleSelectPage() {
   const mosqueCardStyle = useScaleIn(120);
   const subtitleStyle = useFadeInUp(0, 16);
   const adminLinkStyle = useFadeInUp(400, 16);
+  const goBack = useSafeBack('/');
 
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [adminCode, setAdminCode] = useState('');
@@ -60,7 +62,7 @@ export default function RoleSelectPage() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       {/* ── Header ── */}
       <View style={[styles.header, { paddingHorizontal }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
+        <TouchableOpacity onPress={goBack} style={styles.backButton} activeOpacity={0.7}>
           <ChevronLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Choose Your Role</Text>

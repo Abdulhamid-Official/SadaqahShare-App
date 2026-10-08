@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { ArrowLeft, Lock, Mail, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react-native';
+import { useSafeBack } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
@@ -36,6 +37,7 @@ export default function AuthSettingsScreen() {
 
   // Change email state
   const [newEmail, setNewEmail] = useState('');
+  const goBack = useSafeBack('/(donor-tabs)');
 
   const handleChangePassword = async () => {
     setError(null);
@@ -121,7 +123,7 @@ export default function AuthSettingsScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
+        <TouchableOpacity onPress={goBack} style={styles.backBtn} activeOpacity={0.7}>
           <ArrowLeft size={22} color={colors.stone600} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Account Settings</Text>
