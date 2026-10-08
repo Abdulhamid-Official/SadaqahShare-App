@@ -12,15 +12,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Building2, ArrowLeft, Eye, EyeOff } from 'lucide-react-native';
+import { Building2, ArrowLeft, Eye, EyeOff, MailWarning } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
-import { MosqueAccount, Mosque } from '@/lib/types';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 import { useDeviceSize } from '@/lib/responsive';
 
+type Stage = 'input' | 'verify-email';
+
 export default function MosqueLoginScreen() {
-  const { setRole, setMosqueAccount, setMosqueName, setMosqueCity, setMosqueState, setIsPaid, setIsAdmin } =
+  const { setMosqueAccount, setMosqueName, setMosqueCity, setMosqueState, setIsPaid, setRole, setIsAdmin } =
     useAppContext();
   const deviceSize = useDeviceSize();
   const { colors } = useTheme();
@@ -30,6 +31,8 @@ export default function MosqueLoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stage, setStage] = useState<Stage>('input');
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
 
@@ -44,82 +47,68 @@ export default function MosqueLoginScreen() {
       return;
     }
 
-    // Admin mode
-    if (trimmedEmail === 'admin' && password === 'admin') {
-      const adminAccount: MosqueAccount = {
-        id: 'admin-mosque-account',
-        mosque_id: 'admin-mosque',
-        email: 'admin@sadaqahshare.demo',
-        password_hash: '',
-        is_paid: true,
-        created_at: new Date().toISOString(),
-      };
-      setIsAdmin(true);
-      setMosqueAccount(adminAccount);
-      setMosqueName('Demo Mosque (Admin)');
-      setMosqueCity('Demo City');
-      setMosqueState('Demo State');
-      setRole('mosque');
-      setIsPaid(true);
-      router.replace('/(mosque-tabs)');
-      return;
-    }
-
     setError(null);
+    setInfoMessage(null);
     setLoading(true);
 
     try {
-      const { data: account, error: fetchError } = await supabase
-        .from('mosque_accounts')
-        .select('*')
-        .eq('email', trimmedEmail)
-        .maybeSingle();
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
+      });
 
-      if (fetchError) {
-        setError(fetchError.message);
+      if (signInError) {
+        if (signInError.message.includes('not confirmed')) {
+          setStage('verify-email');
+          setLoading(false);
+          return;
+        }
+        setError('Incorrect email or password.');
         setLoading(false);
         return;
       }
 
-      if (!account) {
-        setError('No account found. Register your mosque first.');
+      if (!signInData.user) {
+        setError('Sign in failed. Please try again.');
         setLoading(false);
         return;
       }
 
-      const typedAccount = account as MosqueAccount;
-
-      if (typedAccount.password_hash !== password) {
-        setError('Incorrect password.');
+      if (!signInData.user.email_confirmed_at) {
+        setStage('verify-email');
         setLoading(false);
         return;
       }
 
-      const { data: mosque, error: mosqueError } = await supabase
-        .from('mosques')
-        .select('*')
-        .eq('id', typedAccount.mosque_id)
-        .single();
-
-      if (mosqueError || !mosque) {
-        setError('Could not load mosque data. Please try again.');
-        setLoading(false);
-        return;
-      }
-
-      const typedMosque = mosque as Mosque;
-
+      // Profile data is loaded by onAuthStateChange, just navigate
       setIsAdmin(false);
-      setMosqueAccount(typedAccount);
-      setMosqueName(typedMosque.name);
-      setMosqueCity(typedMosque.city);
-      setMosqueState(typedMosque.state);
       setRole('mosque');
-      setIsPaid(typedAccount.is_paid);
-
       router.replace('/(mosque-tabs)');
     } catch (e: any) {
       setError(e.message || 'Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: trimmedEmail,
+      });
+      if (resendError) {
+        setError(resendError.message);
+      } else {
+        setInfoMessage('Verification email sent. Please check your inbox.');
+      }
+    } catch (e: any) {
+      setError(e.message || 'Failed to resend verification.');
     } finally {
       setLoading(false);
     }
@@ -154,78 +143,129 @@ export default function MosqueLoginScreen() {
 
             <Text style={[styles.title, { color: colors.textPrimary }]}>Mosque Manager</Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Sign in to manage your mosque's needs and community
+              {stage === 'verify-email'
+                ? 'Verify your email to continue'
+                : 'Sign in to manage your mosque'}
             </Text>
 
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textPrimary }]}>Email Address</Text>
-              <TextInput
-                style={[styles.input, emailFocused && styles.inputFocused, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary }]}
-                placeholder="mosque@email.com"
-                placeholderTextColor={Colors.stone400}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                value={email}
-                onChangeText={(t) => { setEmail(t); setError(null); }}
-                onFocus={() => setEmailFocused(true)}
-                onBlur={() => setEmailFocused(false)}
-                editable={!loading}
-              />
-            </View>
+            {stage === 'input' && (
+              <>
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: colors.textPrimary }]}>Email Address</Text>
+                  <TextInput
+                    style={[styles.input, emailFocused && styles.inputFocused, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary }]}
+                    placeholder="mosque@email.com"
+                    placeholderTextColor={Colors.stone400}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    value={email}
+                    onChangeText={(t) => { setEmail(t); setError(null); }}
+                    onFocus={() => setEmailFocused(true)}
+                    onBlur={() => setEmailFocused(false)}
+                    editable={!loading}
+                  />
+                </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: colors.textPrimary }]}>Password</Text>
-              <View style={[styles.passwordContainer, passwordFocused && styles.inputFocused, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
-                <TextInput
-                  style={[styles.passwordInput, { color: colors.textPrimary }]}
-                  placeholder="Enter your password"
-                  placeholderTextColor={Colors.stone400}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  value={password}
-                  onChangeText={(t) => { setPassword(t); setError(null); }}
-                  onFocus={() => setPasswordFocused(true)}
-                  onBlur={() => setPasswordFocused(false)}
-                  editable={!loading}
-                />
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: colors.textPrimary }]}>Password</Text>
+                  <View style={[styles.passwordContainer, passwordFocused && styles.inputFocused, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
+                    <TextInput
+                      style={[styles.passwordInput, { color: colors.textPrimary }]}
+                      placeholder="Enter your password"
+                      placeholderTextColor={Colors.stone400}
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      value={password}
+                      onChangeText={(t) => { setPassword(t); setError(null); }}
+                      onFocus={() => setPasswordFocused(true)}
+                      onBlur={() => setPasswordFocused(false)}
+                      editable={!loading}
+                    />
+                    <TouchableOpacity
+                      style={styles.eyeButton}
+                      onPress={() => setShowPassword(!showPassword)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      {showPassword ? <EyeOff size={20} color={Colors.stone400} /> : <Eye size={20} color={Colors.stone400} />}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {error && <Text style={styles.errorText}>{error}</Text>}
+
                 <TouchableOpacity
-                  style={styles.eyeButton}
-                  onPress={() => setShowPassword(!showPassword)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={[styles.primaryButton, loading && styles.buttonDisabled]}
+                  onPress={handleSignIn}
+                  activeOpacity={0.8}
+                  disabled={loading}
                 >
-                  {showPassword ? (
-                    <EyeOff size={20} color={Colors.stone400} />
+                  {loading ? (
+                    <ActivityIndicator color={Colors.white} size="small" />
                   ) : (
-                    <Eye size={20} color={Colors.stone400} />
+                    <Text style={styles.primaryButtonText}>Sign In</Text>
                   )}
                 </TouchableOpacity>
-              </View>
-            </View>
 
-            {error && <Text style={styles.errorText}>{error}</Text>}
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={() => router.push('/forgot-password')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.secondaryButtonText}>Forgot password?</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.primaryButton, loading && styles.buttonDisabled]}
-              onPress={handleSignIn}
-              activeOpacity={0.8}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color={Colors.white} size="small" />
-              ) : (
-                <Text style={styles.primaryButtonText}>Sign In</Text>
-              )}
-            </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.registerButton}
+                  onPress={() => router.push('/mosque-register')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.registerButtonText}>Register Your Mosque</Text>
+                </TouchableOpacity>
+              </>
+            )}
 
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={() => router.push('/mosque-register')}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.secondaryButtonText}>Register Your Mosque</Text>
-            </TouchableOpacity>
+            {stage === 'verify-email' && (
+              <>
+                <View style={styles.welcomeContainer}>
+                  <View style={styles.checkCircle}>
+                    <MailWarning size={48} color={Colors.amber} strokeWidth={1.5} />
+                  </View>
+                  <Text style={[styles.welcomeTitle, { color: colors.textPrimary }]}>Verify Your Email</Text>
+                  <Text style={[styles.welcomeEmail, { color: colors.textMuted }]}>
+                    We sent a verification link to {email.trim().toLowerCase()}
+                  </Text>
+                  <Text style={[styles.verifyInstructions, { color: colors.textSecondary }]}>
+                    Click the link in your email to verify your account, then return here to sign in.
+                  </Text>
+                </View>
+
+                {infoMessage && <Text style={styles.infoText}>{infoMessage}</Text>}
+                {error && <Text style={styles.errorText}>{error}</Text>}
+
+                <TouchableOpacity
+                  style={[styles.primaryButton, loading && styles.buttonDisabled]}
+                  onPress={handleResendVerification}
+                  activeOpacity={0.8}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color={Colors.white} size="small" />
+                  ) : (
+                    <Text style={styles.primaryButtonText}>Resend Verification</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={() => { setStage('input'); setError(null); setInfoMessage(null); }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.secondaryButtonText}>Back to Sign In</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -345,6 +385,15 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.lg,
     width: '100%',
   },
+  infoText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSize.sm,
+    color: Colors.teal,
+    textAlign: 'center',
+    marginBottom: Spacing.lg,
+    width: '100%',
+    lineHeight: 20,
+  },
   primaryButton: {
     width: '100%',
     height: 52,
@@ -371,11 +420,44 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: Spacing.md,
-    minHeight: 44,
   },
   secondaryButtonText: {
     fontFamily: 'Inter-SemiBold',
     fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+  },
+  registerButton: {
+    width: '100%',
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: Spacing.sm,
+  },
+  registerButtonText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: FontSize.sm,
     color: Colors.teal,
+  },
+  welcomeContainer: { alignItems: 'center', marginBottom: Spacing.xxl },
+  checkCircle: { marginBottom: Spacing.lg },
+  welcomeTitle: {
+    fontFamily: 'Inter-Bold',
+    fontSize: FontSize.xl,
+    color: Colors.textPrimary,
+    marginBottom: Spacing.sm,
+  },
+  welcomeEmail: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
+    marginBottom: Spacing.md,
+    textAlign: 'center',
+  },
+  verifyInstructions: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

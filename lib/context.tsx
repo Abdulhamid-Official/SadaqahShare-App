@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import { AppState, Donor, MosqueAccount, UserRole } from './types';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { Session, User } from '@supabase/supabase-js';
+import { supabase } from './supabase';
+import { AppState, Donor, MosqueAccount, Mosque, UserRole, Profile } from './types';
 
 interface AppContextType extends AppState {
   setRole: (role: UserRole) => void;
@@ -10,7 +12,8 @@ interface AppContextType extends AppState {
   setMosqueState: (state: string | null) => void;
   setIsPaid: (paid: boolean) => void;
   setIsAdmin: (admin: boolean) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
+  refreshSession: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -24,8 +27,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [mosqueState, setMosqueState] = useState<string | null>(null);
   const [isPaid, setIsPaid] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [session, setSession] = useState<{ user: { id: string; email: string; emailConfirmed: boolean } | null; profile: Profile | null } | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
-  const logout = useCallback(() => {
+  const clearAppState = useCallback(() => {
     setRole(null);
     setDonor(null);
     setMosqueAccount(null);
@@ -34,7 +39,139 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setMosqueState(null);
     setIsPaid(false);
     setIsAdmin(false);
+    setSession(null);
   }, []);
+
+  const loadProfileData = useCallback(async (user: User) => {
+    try {
+      const { data: profile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (profileErr) {
+        console.error('Profile fetch error:', profileErr);
+        setAuthLoading(false);
+        return;
+      }
+
+      const typedProfile = profile as Profile | null;
+
+      setSession({
+        user: {
+          id: user.id,
+          email: user.email ?? '',
+          emailConfirmed: user.email_confirmed_at != null,
+        },
+        profile: typedProfile,
+      });
+
+      if (typedProfile) {
+        if (typedProfile.role === 'donor' && typedProfile.donor_id) {
+          const { data: donorData } = await supabase
+            .from('donors')
+            .select('*')
+            .eq('id', typedProfile.donor_id)
+            .maybeSingle();
+          if (donorData) {
+            setDonor(donorData as Donor);
+            setRole('donor');
+          }
+        } else if (typedProfile.role === 'mosque' && typedProfile.mosque_account_id) {
+          const { data: accountData } = await supabase
+            .from('mosque_accounts')
+            .select('*')
+            .eq('id', typedProfile.mosque_account_id)
+            .maybeSingle();
+          if (accountData) {
+            const account = accountData as MosqueAccount;
+            setMosqueAccount(account);
+            setRole('mosque');
+            setIsPaid(account.is_paid);
+
+            const { data: mosqueData } = await supabase
+              .from('mosques')
+              .select('*')
+              .eq('id', account.mosque_id)
+              .maybeSingle();
+            if (mosqueData) {
+              const mosque = mosqueData as Mosque;
+              setMosqueName(mosque.name);
+              setMosqueCity(mosque.city);
+              setMosqueState(mosque.state);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('loadProfileData error:', err);
+    } finally {
+      setAuthLoading(false);
+    }
+  }, []);
+
+  // Session restoration on mount + onAuthStateChange
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      try {
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
+        if (!mounted) return;
+
+        if (existingSession?.user) {
+          await loadProfileData(existingSession.user);
+        } else {
+          setAuthLoading(false);
+        }
+      } catch (err) {
+        console.error('Session restoration error:', err);
+        if (mounted) setAuthLoading(false);
+      }
+    })();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (!mounted) return;
+
+      (async () => {
+        if (event === 'SIGNED_OUT' || !newSession?.user) {
+          clearAppState();
+          setAuthLoading(false);
+          return;
+        }
+
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+          await loadProfileData(newSession.user);
+        }
+      })();
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [loadProfileData, clearAppState]);
+
+  const logout = useCallback(async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Sign out error:', err);
+    }
+    clearAppState();
+  }, [clearAppState]);
+
+  const refreshSession = useCallback(async () => {
+    try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (currentSession?.user) {
+        await loadProfileData(currentSession.user);
+      }
+    } catch (err) {
+      console.error('Refresh session error:', err);
+    }
+  }, [loadProfileData]);
 
   return (
     <AppContext.Provider
@@ -47,6 +184,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         mosqueState,
         isPaid,
         isAdmin,
+        session,
+        authLoading,
         setRole,
         setDonor,
         setMosqueAccount,
@@ -56,6 +195,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setIsPaid,
         setIsAdmin,
         logout,
+        refreshSession,
       }}
     >
       {children}

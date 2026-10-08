@@ -89,12 +89,12 @@ export default function ProfileScreen() {
 
   const getInitial = (name: string) => name.charAt(0).toUpperCase();
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (confirmAction === 'signout') {
-      logout();
+      await logout();
       router.replace('/');
     } else if (confirmAction === 'switch') {
-      logout();
+      await logout();
       router.replace('/role-select' as any);
     }
     setConfirmAction(null);
@@ -200,6 +200,16 @@ export default function ProfileScreen() {
               <ArrowRightLeft size={18} color={Colors.blue} />
             </View>
             <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Switch Role</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.menuItem, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}
+            activeOpacity={0.7}
+            onPress={() => router.push('/auth-settings' as any)}
+          >
+            <View style={[styles.menuIconCircle, { backgroundColor: Colors.amberFaint }]}>
+              <Info size={18} color={Colors.amber} />
+            </View>
+            <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Account & Password</Text>
           </TouchableOpacity>
         </View>
 

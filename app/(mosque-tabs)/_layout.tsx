@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Tabs } from 'expo-router';
-import { StyleSheet, Platform, View } from 'react-native';
+import { StyleSheet, Platform, View, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import {
   LayoutDashboard,
   Package,
@@ -20,7 +21,7 @@ const TAB_ITEMS = [
   { name: 'needs', label: 'Needs', Icon: Package },
   { name: 'pledges', label: 'Pledges', Icon: Heart },
   { name: 'members', label: 'Members', Icon: Users },
-  { name: 'requests', label: 'Requests', Icon: MessageSquare },
+  { name: 'requests', label: 'Suggested', Icon: MessageSquare },
   { name: 'settings', label: 'More', Icon: Settings },
 ] as const;
 
@@ -31,8 +32,24 @@ function UnreadDot() {
 export default function MosqueTabsLayout() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
-  const { mosqueAccount, isAdmin } = useAppContext();
+  const router = useRouter();
+  const { mosqueAccount, isAdmin, role, authLoading, session } = useAppContext();
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // Route protection
+  useEffect(() => {
+    if (!authLoading && (!session?.user || role !== 'mosque')) {
+      router.replace('/');
+    }
+  }, [authLoading, session, role, router]);
+
+  if (authLoading || !session?.user || role !== 'mosque') {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color={Colors.teal} />
+      </View>
+    );
+  }
 
   const mosqueId = mosqueAccount?.mosque_id;
 

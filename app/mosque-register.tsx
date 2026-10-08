@@ -161,7 +161,7 @@ export default function MosqueRegisterScreen() {
       if (!emailRegex.test(email.trim())) errors.email = 'Invalid email address.';
     }
     if (!password) errors.password = 'Password is required.';
-    else if (password.length < 4) errors.password = 'Password must be at least 4 characters.';
+    else if (password.length < 6) errors.password = 'Password must be at least 6 characters.';
 
     if (!name.trim()) errors.name = 'Mosque name is required.';
     if (!address.trim()) errors.address = 'Address is required.';
@@ -192,7 +192,29 @@ export default function MosqueRegisterScreen() {
     setLoading(true);
 
     try {
-      // 1. Insert mosque
+      const trimmedEmailLower = email.trim().toLowerCase();
+
+      // 1. Create Supabase Auth account
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: trimmedEmailLower,
+        password,
+      });
+
+      if (authError) {
+        setError(authError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (!authData.user) {
+        setError('Account creation failed. Please try again.');
+        setLoading(false);
+        return;
+      }
+
+      const authId = authData.user.id;
+
+      // 2. Insert mosque
       const { data: mosqueData, error: mosqueError } = await supabase
         .from('mosques')
         .insert({
@@ -217,23 +239,35 @@ export default function MosqueRegisterScreen() {
 
       const mosqueId = mosqueData.id;
 
-      // 2. Insert mosque account
-      const { error: accountError } = await supabase.from('mosque_accounts').insert({
-        mosque_id: mosqueId,
-        email: email.trim().toLowerCase(),
-        password_hash: password, // prototype — store raw
-        is_paid: false,
-      });
+      // 3. Insert mosque account linked to auth user
+      const { data: accountData, error: accountError } = await supabase
+        .from('mosque_accounts')
+        .insert({
+          mosque_id: mosqueId,
+          email: trimmedEmailLower,
+          password_hash: null,
+          is_paid: false,
+          auth_id: authId,
+        })
+        .select('*')
+        .single();
 
       if (accountError) {
-        // Clean up mosque if account creation fails
         await supabase.from('mosques').delete().eq('id', mosqueId);
         setError(accountError.message);
         setLoading(false);
         return;
       }
 
-      // 3. Insert needs
+      // 4. Create profile linking auth user to mosque account
+      await supabase.from('profiles').upsert({
+        id: authId,
+        role: 'mosque',
+        mosque_account_id: accountData.id,
+        email: trimmedEmailLower,
+      });
+
+      // 5. Insert needs
       const validNeeds = needs.filter((n) => n.name.trim());
       if (validNeeds.length > 0) {
         const needRows = validNeeds.map((n) => ({
@@ -250,28 +284,27 @@ export default function MosqueRegisterScreen() {
         const { error: needsError } = await supabase.from('needs').insert(needRows);
 
         if (needsError) {
-          // Non-fatal — mosque and account already created
           console.warn('Failed to insert needs:', needsError.message);
         }
       }
 
-      // 4. Set context and go to payment
-      const { data: createdAccount } = await supabase
-        .from('mosque_accounts')
-        .select('*')
-        .eq('mosque_id', mosqueId)
-        .eq('email', email.trim().toLowerCase())
-        .maybeSingle();
+      // 6. Set context
+      const typedAccount = accountData as MosqueAccount;
+      setIsAdmin(false);
+      setMosqueAccount(typedAccount);
+      setMosqueName(name.trim());
+      setMosqueCity(city.trim());
+      setMosqueState(state.trim());
+      setRole('mosque');
+      setIsPaid(false);
 
-      if (createdAccount) {
-        const typedAccount = createdAccount as MosqueAccount;
-        setIsAdmin(false);
-        setMosqueAccount(typedAccount);
-        setMosqueName(name.trim());
-        setMosqueCity(city.trim());
-        setMosqueState(state.trim());
-        setRole('mosque');
-        setIsPaid(false);
+      // 7. Check if email confirmation is needed
+      if (!authData.session && !authData.user.email_confirmed_at) {
+        setSuccess(true);
+        setTimeout(() => {
+          router.replace('/mosque-login' as any);
+        }, 2000);
+        return;
       }
 
       setSuccess(true);
@@ -296,7 +329,7 @@ export default function MosqueRegisterScreen() {
           </View>
           <Text style={[styles.successTitle, { color: colors.textPrimary }]}>Mosque Registered!</Text>
           <Text style={[styles.successSubtitle, { color: colors.textSecondary }]}>
-            Your mosque has been created successfully. Setting up subscription...
+            Your mosque has been created successfully. Please check your email to verify your account, then sign in.
           </Text>
         </View>
       </SafeAreaView>
@@ -395,7 +428,7 @@ export default function MosqueRegisterScreen() {
                   >
                     <TextInput
                       style={styles.passwordInput}
-                      placeholder="Min 4 characters"
+                      placeholder="Min 6 characters"
                       placeholderTextColor={Colors.stone400}
                       secureTextEntry={!showPassword}
                       autoCapitalize="none"

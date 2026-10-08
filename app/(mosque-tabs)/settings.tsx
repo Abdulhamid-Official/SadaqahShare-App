@@ -37,12 +37,12 @@ export default function SettingsScreen() {
   const [confirmAction, setConfirmAction] = useState<'signout' | 'switch' | null>(null);
   const { colors, isDark, toggleTheme } = useTheme();
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (confirmAction === 'signout') {
-      logout();
+      await logout();
       router.replace('/');
     } else if (confirmAction === 'switch') {
-      logout();
+      await logout();
       router.replace('/role-select' as any);
     }
     setConfirmAction(null);
@@ -180,7 +180,19 @@ export default function SettingsScreen() {
             <View style={[styles.menuIconCircle, { backgroundColor: Colors.amberFaint }]}>
               <MessageSquare size={18} color={Colors.amber} />
             </View>
-            <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Donor Requests</Text>
+            <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Donor Suggestions</Text>
+            <ChevronRight size={18} color={colors.stone400} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.menuItem, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}
+            activeOpacity={0.7}
+            onPress={() => router.push('/auth-settings' as any)}
+          >
+            <View style={[styles.menuIconCircle, { backgroundColor: Colors.amberFaint }]}>
+              <LogOut size={18} color={Colors.amber} />
+            </View>
+            <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Account & Password</Text>
             <ChevronRight size={18} color={colors.stone400} />
           </TouchableOpacity>
 

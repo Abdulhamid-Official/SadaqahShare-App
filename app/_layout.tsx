@@ -36,6 +36,9 @@ export default function RootLayout() {
             <Stack.Screen name="mosque-login" />
             <Stack.Screen name="mosque-register" />
             <Stack.Screen name="mosque-payment" />
+            <Stack.Screen name="forgot-password" />
+            <Stack.Screen name="reset-password" />
+            <Stack.Screen name="auth-settings" />
             <Stack.Screen name="about" />
             <Stack.Screen name="(donor-tabs)" />
             <Stack.Screen name="(mosque-tabs)" />

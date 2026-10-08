@@ -38,6 +38,7 @@ export interface Donor {
   token_balance: number;
   is_member: boolean;
   created_at: string;
+  auth_id?: string | null;
 }
 
 export interface DonorMosqueToken {
@@ -96,9 +97,10 @@ export interface MosqueAccount {
   id: string;
   mosque_id: string;
   email: string;
-  password_hash: string;
+  password_hash: string | null;
   is_paid: boolean;
   created_at: string;
+  auth_id?: string | null;
 }
 
 export interface MosqueMember {
@@ -136,6 +138,25 @@ export interface Announcement {
 
 export type UserRole = 'donor' | 'mosque' | null;
 
+export interface Profile {
+  id: string;
+  role: 'donor' | 'mosque';
+  donor_id: string | null;
+  mosque_account_id: string | null;
+  email: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuthSession {
+  user: {
+    id: string;
+    email: string;
+    emailConfirmed: boolean;
+  } | null;
+  profile: Profile | null;
+}
+
 export interface AppState {
   role: UserRole;
   donor: Donor | null;
@@ -145,4 +166,6 @@ export interface AppState {
   mosqueState: string | null;
   isPaid: boolean;
   isAdmin: boolean;
+  session: AuthSession | null;
+  authLoading: boolean;
 }

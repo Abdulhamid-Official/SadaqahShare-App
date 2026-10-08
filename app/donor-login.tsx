@@ -12,45 +12,29 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Heart, ArrowLeft, CheckCircle } from 'lucide-react-native';
+import { Heart, ArrowLeft, Eye, EyeOff, CheckCircle, MailWarning } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
-import { Donor } from '@/lib/types';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 
-type Stage = 'input' | 'welcome-back';
+type Stage = 'input' | 'welcome-back' | 'verify-email';
 
 export default function DonorLoginScreen() {
   const { setRole, setDonor, setIsAdmin } = useAppContext();
   const { colors } = useTheme();
 
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stage, setStage] = useState<Stage>('input');
-  const [foundDonor, setFoundDonor] = useState<Donor | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
   const handleContinue = async () => {
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedName = name.trim();
-
-    // Admin mode
-    if (trimmedEmail === 'admin' && trimmedName === 'admin') {
-      const adminDonor: Donor = {
-        id: 'admin-donor',
-        email: 'admin@sadaqahshare.demo',
-        name: 'Admin (Demo)',
-        token_balance: 999999,
-        is_member: true,
-        created_at: new Date().toISOString(),
-      };
-      setIsAdmin(true);
-      setRole('donor');
-      setDonor(adminDonor);
-      router.replace('/(donor-tabs)');
-      return;
-    }
 
     if (!trimmedEmail) {
       setError('Please enter your email address.');
@@ -63,54 +47,134 @@ export default function DonorLoginScreen() {
       return;
     }
 
+    if (!password) {
+      setError('Please enter your password.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+
     setError(null);
+    setInfoMessage(null);
     setLoading(true);
 
     try {
-      const { data: existing, error: fetchError } = await supabase
-        .from('donors')
-        .select('*')
-        .eq('email', trimmedEmail)
-        .maybeSingle();
+      // Try signing in first
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
+      });
 
-      if (fetchError) {
-        setError(fetchError.message);
-        setLoading(false);
+      if (!signInError && signInData.user) {
+        // Check email verification
+        if (!signInData.user.email_confirmed_at) {
+          setStage('verify-email');
+          setLoading(false);
+          return;
+        }
+
+        // Profile loaded by onAuthStateChange — just navigate
+        setIsAdmin(false);
+        setRole('donor');
+        router.replace('/(donor-tabs)');
         return;
       }
 
-      if (existing) {
-        setFoundDonor(existing as Donor);
-        setStage('welcome-back');
-        setLoading(false);
+      // If sign-in failed because user doesn't exist, try signing up
+      if (signInError && (signInError.message.includes('Invalid login credentials') || signInError.message.includes('not confirmed'))) {
+        // For existing but unconfirmed — show verify screen
+        if (signInError.message.includes('not confirmed')) {
+          setStage('verify-email');
+          setLoading(false);
+          return;
+        }
+
+        // Invalid credentials — could be wrong password or new user
+        // Check if a donor record exists by email
+        const { data: existingDonor } = await supabase
+          .from('donors')
+          .select('id')
+          .eq('email', trimmedEmail)
+          .maybeSingle();
+
+        if (existingDonor) {
+          // Donor record exists but auth failed — wrong password
+          setError('Incorrect password. Please try again.');
+          setLoading(false);
+          return;
+        }
+
+        // No existing donor — this is a new user, sign up
+        if (!trimmedName) {
+          setError('Please enter your name to create an account.');
+          setLoading(false);
+          return;
+        }
+
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: trimmedEmail,
+          password,
+        });
+
+        if (signUpError) {
+          setError(signUpError.message);
+          setLoading(false);
+          return;
+        }
+
+        if (!signUpData.user) {
+          setError('Sign up failed. Please try again.');
+          setLoading(false);
+          return;
+        }
+
+        // Create donor record
+        const { data: newDonor, error: donorErr } = await supabase
+          .from('donors')
+          .insert({
+            email: trimmedEmail,
+            name: trimmedName,
+            auth_id: signUpData.user.id,
+          })
+          .select('*')
+          .single();
+
+        if (donorErr) {
+          console.error('Donor creation error:', donorErr);
+          setError('Account created but profile setup failed. Please contact support.');
+          setLoading(false);
+          return;
+        }
+
+        // Create profile linking auth user to donor
+        await supabase.from('profiles').upsert({
+          id: signUpData.user.id,
+          role: 'donor',
+          donor_id: newDonor.id,
+          email: trimmedEmail,
+        });
+
+        // Check if email confirmation is required
+        if (!signUpData.session && !signUpData.user.email_confirmed_at) {
+          setStage('verify-email');
+          setInfoMessage('We sent a verification link to ' + trimmedEmail + '. Please check your inbox and click the link to verify your account.');
+          setLoading(false);
+          return;
+        }
+
+        // If session was created (email confirmation disabled), navigate
+        setIsAdmin(false);
+        setRole('donor');
+        setDonor(newDonor);
+        router.replace('/(donor-tabs)');
         return;
       }
 
-      if (!trimmedName) {
-        setError('Please enter your name to create an account.');
-        setLoading(false);
-        return;
-      }
-
-      const { data: newDonor, error: createError } = await supabase
-        .from('donors')
-        .upsert(
-          { email: trimmedEmail, name: trimmedName },
-          { onConflict: 'email' }
-        )
-        .select('*')
-        .single();
-
-      if (createError) {
-        setError(createError.message);
-        setLoading(false);
-        return;
-      }
-
-      setIsAdmin(false);
-      setRole('donor');
-      setDonor(newDonor as Donor);
-      router.replace('/(donor-tabs)');
+      // Other sign-in error
+      setError(signInError?.message || 'Something went wrong. Please try again.');
     } catch (e: any) {
       setError(e.message || 'Something went wrong. Please try again.');
     } finally {
@@ -118,12 +182,33 @@ export default function DonorLoginScreen() {
     }
   };
 
-  const handleGoToDashboard = () => {
-    if (!foundDonor) return;
-    setIsAdmin(false);
-    setRole('donor');
-    setDonor(foundDonor);
-    router.replace('/(donor-tabs)');
+  const handleResendVerification = async () => {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      const { error: resendError } = await supabase.auth.resend({
+        type: 'signup',
+        email: trimmedEmail,
+      });
+      if (resendError) {
+        setError(resendError.message);
+      } else {
+        setInfoMessage('Verification email sent. Please check your inbox.');
+      }
+    } catch (e: any) {
+      setError(e.message || 'Failed to resend verification.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBackToInput = () => {
+    setStage('input');
+    setError(null);
+    setInfoMessage(null);
   };
 
   return (
@@ -152,7 +237,9 @@ export default function DonorLoginScreen() {
 
             <Text style={[styles.title, { color: colors.textPrimary }]}>Donor Access</Text>
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Enter your email to continue or create a new account
+              {stage === 'verify-email'
+                ? 'Verify your email to continue'
+                : 'Sign in with your email and password'}
             </Text>
 
             {stage === 'input' && (
@@ -167,12 +254,33 @@ export default function DonorLoginScreen() {
                     autoCapitalize="none"
                     autoCorrect={false}
                     value={email}
-                    onChangeText={(t) => {
-                      setEmail(t);
-                      setError(null);
-                    }}
+                    onChangeText={(t) => { setEmail(t); setError(null); }}
                     editable={!loading}
                   />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.label, { color: colors.textPrimary }]}>Password</Text>
+                  <View style={[styles.passwordContainer, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
+                    <TextInput
+                      style={[styles.passwordInput, { color: colors.textPrimary }]}
+                      placeholder="Min 6 characters"
+                      placeholderTextColor={Colors.stone400}
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      value={password}
+                      onChangeText={(t) => { setPassword(t); setError(null); }}
+                      editable={!loading}
+                    />
+                    <TouchableOpacity
+                      style={styles.eyeButton}
+                      onPress={() => setShowPassword(!showPassword)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      {showPassword ? <EyeOff size={20} color={Colors.stone400} /> : <Eye size={20} color={Colors.stone400} />}
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
                 <View style={styles.inputGroup}>
@@ -183,15 +291,10 @@ export default function DonorLoginScreen() {
                     placeholderTextColor={Colors.stone400}
                     autoCapitalize="words"
                     value={name}
-                    onChangeText={(t) => {
-                      setName(t);
-                      setError(null);
-                    }}
+                    onChangeText={(t) => { setName(t); setError(null); }}
                     editable={!loading}
                   />
-                  <Text style={styles.hint}>
-                    Required for new accounts
-                  </Text>
+                  <Text style={styles.hint}>Required only for new accounts</Text>
                 </View>
 
                 {error && <Text style={styles.errorText}>{error}</Text>}
@@ -208,51 +311,54 @@ export default function DonorLoginScreen() {
                     <Text style={styles.primaryButtonText}>Continue</Text>
                   )}
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.secondaryButton}
+                  onPress={() => router.push('/forgot-password')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.secondaryButtonText}>Forgot password?</Text>
+                </TouchableOpacity>
               </>
             )}
 
-            {stage === 'welcome-back' && foundDonor && (
+            {stage === 'verify-email' && (
               <>
                 <View style={styles.welcomeContainer}>
                   <View style={styles.checkCircle}>
-                    <CheckCircle
-                      size={48}
-                      color={Colors.primary}
-                      strokeWidth={1.5}
-                    />
+                    <MailWarning size={48} color={Colors.amber} strokeWidth={1.5} />
                   </View>
-                  <Text style={[styles.welcomeTitle, { color: colors.textPrimary }]}>Welcome Back!</Text>
-                  <Text style={styles.welcomeName}>{foundDonor.name}</Text>
-                  <Text style={[styles.welcomeEmail, { color: colors.textMuted }]}>{foundDonor.email}</Text>
-                  {foundDonor.is_member && (
-                    <View style={styles.memberBadge}>
-                      <Text style={styles.memberBadgeText}>Member</Text>
-                    </View>
-                  )}
+                  <Text style={[styles.welcomeTitle, { color: colors.textPrimary }]}>Verify Your Email</Text>
+                  <Text style={[styles.welcomeEmail, { color: colors.textMuted }]}>
+                    We sent a verification link to {email.trim().toLowerCase()}
+                  </Text>
+                  <Text style={[styles.verifyInstructions, { color: colors.textSecondary }]}>
+                    Click the link in your email to verify your account, then return here to sign in.
+                  </Text>
                 </View>
 
+                {infoMessage && <Text style={styles.infoText}>{infoMessage}</Text>}
                 {error && <Text style={styles.errorText}>{error}</Text>}
 
                 <TouchableOpacity
-                  style={styles.primaryButton}
-                  onPress={handleGoToDashboard}
+                  style={[styles.primaryButton, loading && styles.buttonDisabled]}
+                  onPress={handleResendVerification}
                   activeOpacity={0.8}
+                  disabled={loading}
                 >
-                  <Text style={styles.primaryButtonText}>Go to Dashboard</Text>
+                  {loading ? (
+                    <ActivityIndicator color={Colors.white} size="small" />
+                  ) : (
+                    <Text style={styles.primaryButtonText}>Resend Verification</Text>
+                  )}
                 </TouchableOpacity>
 
                 <TouchableOpacity
                   style={styles.secondaryButton}
-                  onPress={() => {
-                    setStage('input');
-                    setFoundDonor(null);
-                    setError(null);
-                  }}
+                  onPress={handleBackToInput}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.secondaryButtonText}>
-                    Use a different account
-                  </Text>
+                  <Text style={styles.secondaryButtonText}>Back to Sign In</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -347,6 +453,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.stone200,
   },
+  passwordContainer: {
+    width: '100%',
+    height: 50,
+    backgroundColor: Colors.stone50,
+    borderRadius: Radius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.stone200,
+  },
+  passwordInput: {
+    flex: 1,
+    height: '100%',
+    paddingHorizontal: Spacing.lg,
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSize.md,
+    color: Colors.textPrimary,
+  },
+  eyeButton: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   hint: {
     fontFamily: 'Inter-Regular',
     fontSize: FontSize.xs,
@@ -360,6 +485,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: Spacing.lg,
     width: '100%',
+  },
+  infoText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSize.sm,
+    color: Colors.teal,
+    textAlign: 'center',
+    marginBottom: Spacing.lg,
+    width: '100%',
+    lineHeight: 20,
   },
   primaryButton: {
     width: '100%',
@@ -401,27 +535,18 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     marginBottom: Spacing.sm,
   },
-  welcomeName: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: FontSize.lg,
-    color: Colors.primary,
-    marginBottom: Spacing.xs,
-  },
   welcomeEmail: {
     fontFamily: 'Inter-Regular',
     fontSize: FontSize.sm,
     color: Colors.textMuted,
     marginBottom: Spacing.md,
+    textAlign: 'center',
   },
-  memberBadge: {
-    backgroundColor: Colors.primaryFaint,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: Radius.full,
-  },
-  memberBadgeText: {
-    fontFamily: 'Inter-SemiBold',
-    fontSize: FontSize.xs,
-    color: Colors.primary,
+  verifyInstructions: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSize.sm,
+    color: Colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
