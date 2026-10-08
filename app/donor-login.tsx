@@ -16,6 +16,7 @@ import { Heart, ArrowLeft, Eye, EyeOff, MailWarning } from 'lucide-react-native'
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
+import { ConsentCheckbox } from '@/components/ConsentCheckbox';
 
 type Mode = 'signin' | 'signup';
 type Stage = 'form' | 'verify-email';
@@ -37,6 +38,8 @@ export default function DonorLoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [stage, setStage] = useState<Stage>('form');
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
   const switchMode = (newMode: Mode) => {
     setMode(newMode);
@@ -79,6 +82,11 @@ export default function DonorLoginScreen() {
   const handleSignUp = async (trimmedEmail: string, trimmedName: string) => {
     if (!trimmedName) {
       setError('Please enter your name to create an account.');
+      return;
+    }
+
+    if (!termsAccepted || !privacyAccepted) {
+      setError('You must accept the Terms of Service and Privacy Policy to create an account.');
       return;
     }
 
@@ -137,12 +145,17 @@ export default function DonorLoginScreen() {
       donorId = newDonor.id;
     }
 
-    // Create profile linking auth user to donor (upsert handles re-tries)
+    // Create profile linking auth user to donor (with consent)
     const { error: profileErr } = await supabase.from('profiles').upsert({
       id: signUpData.user.id,
       role: 'donor',
       donor_id: donorId,
       email: trimmedEmail,
+      terms_accepted: true,
+      terms_accepted_at: new Date().toISOString(),
+      privacy_accepted: true,
+      privacy_accepted_at: new Date().toISOString(),
+      policy_version: '1.0',
     });
 
     if (profileErr) {
@@ -340,6 +353,25 @@ export default function DonorLoginScreen() {
                   </View>
                 )}
 
+                {mode === 'signup' && (
+                  <View style={styles.consentSection}>
+                    <ConsentCheckbox
+                      label="I agree to the"
+                      linkText="Terms of Service"
+                      onLinkPress={() => router.push('/terms' as any)}
+                      checked={termsAccepted}
+                      onToggle={() => { setTermsAccepted(!termsAccepted); setError(null); }}
+                    />
+                    <ConsentCheckbox
+                      label="I agree to the"
+                      linkText="Privacy Policy"
+                      onLinkPress={() => router.push('/privacy' as any)}
+                      checked={privacyAccepted}
+                      onToggle={() => { setPrivacyAccepted(!privacyAccepted); setError(null); }}
+                    />
+                  </View>
+                )}
+
                 {error && <Text style={styles.errorText}>{error}</Text>}
 
                 <TouchableOpacity
@@ -508,6 +540,11 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
   inputGroup: { width: '100%', marginBottom: Spacing.lg },
+  consentSection: {
+    width: '100%',
+    marginBottom: Spacing.lg,
+    paddingHorizontal: Spacing.xs,
+  },
   label: {
     fontFamily: 'Inter-SemiBold',
     fontSize: FontSize.sm,

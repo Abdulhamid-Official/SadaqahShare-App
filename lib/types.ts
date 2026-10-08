@@ -39,6 +39,8 @@ export interface Donor {
   is_member: boolean;
   created_at: string;
   auth_id?: string | null;
+  deleted_at?: string | null;
+  name_anonymized?: boolean;
 }
 
 export interface DonorMosqueToken {
@@ -60,6 +62,8 @@ export interface Pledge {
   notes: string | null;
   tokens_earned: number;
   created_at: string;
+  idempotency_key?: string | null;
+  confirmed_at?: string | null;
 }
 
 export interface Poll {
@@ -101,6 +105,8 @@ export interface MosqueAccount {
   is_paid: boolean;
   created_at: string;
   auth_id?: string | null;
+  deleted_at?: string | null;
+  max_members?: number;
 }
 
 export interface MosqueMember {
@@ -136,6 +142,25 @@ export interface Announcement {
   updated_at: string | null;
 }
 
+export interface AnnouncementRead {
+  id: string;
+  announcement_id: string;
+  donor_id: string;
+  read_at: string;
+}
+
+export interface TokenTransaction {
+  id: string;
+  donor_id: string;
+  mosque_id: string;
+  amount: number;
+  balance_after: number;
+  type: string;
+  reference_id: string | null;
+  description: string | null;
+  created_at: string;
+}
+
 export type UserRole = 'donor' | 'mosque' | null;
 
 export interface Profile {
@@ -146,6 +171,16 @@ export interface Profile {
   email: string;
   created_at: string;
   updated_at: string;
+  terms_accepted?: boolean;
+  terms_accepted_at?: string | null;
+  privacy_accepted?: boolean;
+  privacy_accepted_at?: string | null;
+  policy_version?: string;
+  notif_announcements?: boolean;
+  notif_polls?: boolean;
+  notif_needs?: boolean;
+  push_notif_enabled?: boolean;
+  display_name?: string | null;
 }
 
 export interface AuthSession {

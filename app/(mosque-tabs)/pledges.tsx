@@ -94,32 +94,12 @@ export default function PledgesScreen() {
         return;
       }
 
-      // Update pledge status
-      const { error: updateErr } = await supabase
-        .from('pledges')
-        .update({ status: 'fulfilled' })
-        .eq('id', confirmPledge.id);
-      if (updateErr) throw updateErr;
-
-      // Award tokens to donor
-      const { data: existingToken } = await supabase
-        .from('donor_mosque_tokens')
-        .select('*')
-        .eq('donor_id', confirmPledge.donor_id)
-        .eq('mosque_id', mosqueId)
-        .maybeSingle();
-
-      if (existingToken) {
-        await supabase
-          .from('donor_mosque_tokens')
-          .update({ token_balance: existingToken.token_balance + confirmPledge.tokens_earned })
-          .eq('id', existingToken.id);
-      } else {
-        await supabase.from('donor_mosque_tokens').insert({
-          donor_id: confirmPledge.donor_id,
-          mosque_id: mosqueId,
-          token_balance: confirmPledge.tokens_earned,
-        });
+      // Use server-side function for atomic pledge confirmation + token award
+      const { data: awardResult, error: awardErr } = await supabase
+        .rpc('award_tokens_for_pledge', { p_pledge_id: confirmPledge.id });
+      if (awardErr) throw awardErr;
+      if (awardResult && !awardResult.success) {
+        throw new Error(awardResult.error ?? 'Failed to confirm pledge');
       }
 
       setPledges((prev) => prev.map((p) => p.id === confirmPledge.id ? { ...p, status: 'fulfilled' } : p));

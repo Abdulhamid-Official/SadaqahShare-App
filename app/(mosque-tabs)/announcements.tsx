@@ -32,7 +32,7 @@ import CreateAnnouncementModal from '@/components/CreateAnnouncementModal';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 
 export default function AnnouncementsScreen() {
-  const { mosqueAccount, isAdmin } = useAppContext();
+  const { mosqueAccount, isAdmin, isPaid } = useAppContext();
   const { paddingHorizontal, maxWidth } = useContentWidth();
   const { colors } = useTheme();
 
@@ -175,29 +175,32 @@ export default function AnnouncementsScreen() {
             style={styles.actionBtn}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+            disabled={!isPaid && !isAdmin}
             onPress={() => handleEdit(item)}
           >
-            <Pencil size={16} color={colors.textMuted} />
+            <Pencil size={16} color={!isPaid && !isAdmin ? colors.stone300 : colors.textMuted} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionBtn}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+            disabled={!isPaid && !isAdmin}
             onPress={() => handleArchive(item)}
           >
             {item.archived ? (
-              <ArchiveRestore size={16} color={colors.textMuted} />
+              <ArchiveRestore size={16} color={!isPaid && !isAdmin ? colors.stone300 : colors.textMuted} />
             ) : (
-              <Archive size={16} color={colors.textMuted} />
+              <Archive size={16} color={!isPaid && !isAdmin ? colors.stone300 : colors.textMuted} />
             )}
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.deleteBtn}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+            disabled={!isPaid && !isAdmin}
             onPress={() => handleDelete(item)}
           >
-            <Trash2 size={16} color={Colors.red} />
+            <Trash2 size={16} color={!isPaid && !isAdmin ? colors.stone300 : Colors.red} />
           </TouchableOpacity>
         </View>
       </View>
@@ -272,9 +275,18 @@ export default function AnnouncementsScreen() {
         />
       </View>
 
+      {!isPaid && !isAdmin && (
+        <View style={styles.subBanner}>
+          <Text style={styles.subBannerText}>
+            Activate your subscription to create and manage announcements.
+          </Text>
+        </View>
+      )}
+
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, !isPaid && !isAdmin && styles.fabDisabled]}
         activeOpacity={0.8}
+        disabled={!isPaid && !isAdmin}
         onPress={() => { setEditAnnouncement(null); setShowCreateModal(true); }}
       >
         <Plus size={28} color={Colors.white} strokeWidth={2.5} />
@@ -398,6 +410,16 @@ const styles = StyleSheet.create({
   emptyContainer: { alignItems: 'center', paddingTop: Spacing.huge + 20, paddingHorizontal: Spacing.xxl },
   emptyTitle: { fontFamily: 'Inter-SemiBold', fontSize: FontSize.lg, color: Colors.textSecondary, marginTop: Spacing.lg },
   emptySubtitle: { fontFamily: 'Inter-Regular', fontSize: FontSize.sm, color: Colors.textMuted, marginTop: Spacing.xs, textAlign: 'center', lineHeight: 20 },
+  subBanner: {
+    position: 'absolute', bottom: 170, left: 20, right: 20,
+    backgroundColor: Colors.amberFaint, borderRadius: Radius.md, padding: Spacing.md,
+  },
+  subBannerText: {
+    fontFamily: 'Inter-Regular', fontSize: FontSize.sm, color: Colors.amber, textAlign: 'center', lineHeight: 19,
+  },
+  fabDisabled: {
+    backgroundColor: Colors.stone300,
+  },
   fab: {
     position: 'absolute', bottom: 100, right: 20, width: 60, height: 60, borderRadius: 30,
     backgroundColor: Colors.teal, justifyContent: 'center', alignItems: 'center',

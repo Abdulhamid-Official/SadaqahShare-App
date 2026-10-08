@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Star,
   BarChart3,
+  Megaphone,
 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
@@ -56,6 +57,7 @@ export default function DonorHomeScreen() {
   const [stats, setStats] = useState<Stats>({ itemsPledged: 0, tokensEarned: 0, totalPledges: 0 });
   const [polls, setPolls] = useState<PollWithDetails[]>([]);
   const [recentDonations, setRecentDonations] = useState<PledgeWithDetails[]>([]);
+  const [unreadAnnouncements, setUnreadAnnouncements] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -100,6 +102,30 @@ export default function DonorHomeScreen() {
           tokensEarned: pledgeData.reduce((sum, p) => sum + (p.tokens_earned || 0), 0),
           totalPledges: pledgeData.length,
         });
+      }
+
+      // Fetch unread announcements count from joined mosques
+      if (joinedMosqueIds.length > 0) {
+        const { data: annData } = await supabase
+          .from('announcements')
+          .select('id')
+          .in('mosque_id', joinedMosqueIds)
+          .eq('archived', false);
+        const annIds = (annData || []).map((a) => a.id);
+
+        if (annIds.length > 0) {
+          const { data: readData } = await supabase
+            .from('announcement_reads')
+            .select('announcement_id')
+            .eq('donor_id', donor.id)
+            .in('announcement_id', annIds);
+          const readIds = new Set((readData || []).map((r) => r.announcement_id));
+          setUnreadAnnouncements(annIds.filter((id) => !readIds.has(id)).length);
+        } else {
+          setUnreadAnnouncements(0);
+        }
+      } else {
+        setUnreadAnnouncements(0);
       }
 
       // Fetch active polls (only from joined mosques)
@@ -154,6 +180,7 @@ export default function DonorHomeScreen() {
   useRealtimeTable("polls", null, fetchData, !!donor && !isAdmin);
   useRealtimeTable("needs", null, fetchData, !!donor && !isAdmin);
   useRealtimeTable("donor_mosque_tokens", donor ? "donor_id=eq." + donor.id : null, fetchData, !!donor && !isAdmin);
+  useRealtimeTable("announcements", null, fetchData, !!donor && !isAdmin);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -302,6 +329,46 @@ export default function DonorHomeScreen() {
             <Text style={[styles.statLabel, { color: colors.textMuted }]}>Total Pledges</Text>
           </View>
         </View>
+
+        {/* Announcements */}
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleRow}>
+            <Megaphone size={18} color={Colors.primary} />
+            <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Announcements</Text>
+          </View>
+          {unreadAnnouncements > 0 && (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadBadgeText}>{unreadAnnouncements}</Text>
+            </View>
+          )}
+        </View>
+
+        {unreadAnnouncements > 0 ? (
+          <TouchableOpacity
+            style={[styles.announcCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}
+            activeOpacity={0.8}
+            onPress={() => router.push('/(donor-tabs)/mosques')}
+          >
+            <Megaphone size={24} color={Colors.primary} />
+            <View style={styles.announcText}>
+              <Text style={[styles.announcTitle, { color: colors.textPrimary }]}>
+                {unreadAnnouncements} new announcement{unreadAnnouncements !== 1 ? 's' : ''}
+              </Text>
+              <Text style={[styles.announcSub, { color: colors.textMuted }]}>
+                Tap to view from your mosques
+              </Text>
+            </View>
+            <ChevronRight size={18} color={colors.textMuted} />
+          </TouchableOpacity>
+        ) : (
+          <View style={[styles.emptyCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+            <Megaphone size={32} color={Colors.stone300} />
+            <Text style={[styles.emptyTitle, { color: colors.textSecondary }]}>No New Announcements</Text>
+            <Text style={[styles.emptySubtitle, { color: colors.textMuted }]}>
+              Updates from your mosques will appear here
+            </Text>
+          </View>
+        )}
 
         {/* Active Polls */}
         <View style={styles.sectionHeader}>
@@ -623,6 +690,48 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     marginTop: Spacing.xs,
     textAlign: 'center',
+  },
+
+  // Announcements
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  unreadBadge: {
+    backgroundColor: Colors.red,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  unreadBadgeText: {
+    fontFamily: 'Inter-Bold',
+    fontSize: FontSize.xs,
+    color: Colors.white,
+  },
+  announcCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    gap: Spacing.md,
+  },
+  announcText: {
+    flex: 1,
+  },
+  announcTitle: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: FontSize.md,
+    marginBottom: 2,
+  },
+  announcSub: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSize.sm,
   },
 
   // Poll Cards

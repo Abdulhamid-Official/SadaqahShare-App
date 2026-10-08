@@ -31,7 +31,7 @@ import CreateNeedModal from '@/components/CreateNeedModal';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 
 export default function NeedsScreen() {
-  const { mosqueAccount, isAdmin } = useAppContext();
+  const { mosqueAccount, isAdmin, isPaid } = useAppContext();
   const { paddingHorizontal, maxWidth } = useContentWidth();
   const { colors } = useTheme();
 
@@ -246,29 +246,32 @@ export default function NeedsScreen() {
               style={styles.actionBtn}
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              disabled={!isPaid && !isAdmin}
               onPress={() => handleEdit(item)}
             >
-              <Pencil size={16} color={colors.textMuted} />
+              <Pencil size={16} color={!isPaid && !isAdmin ? colors.stone300 : colors.textMuted} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionBtn}
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              disabled={!isPaid && !isAdmin}
               onPress={() => handleArchive(item)}
             >
               {item.archived ? (
-                <ArchiveRestore size={16} color={colors.textMuted} />
+                <ArchiveRestore size={16} color={!isPaid && !isAdmin ? colors.stone300 : colors.textMuted} />
               ) : (
-                <Archive size={16} color={colors.textMuted} />
+                <Archive size={16} color={!isPaid && !isAdmin ? colors.stone300 : colors.textMuted} />
               )}
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.deleteBtn}
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+              disabled={!isPaid && !isAdmin}
               onPress={() => handleDelete(item)}
             >
-              <Trash2 size={16} color={Colors.red} />
+              <Trash2 size={16} color={!isPaid && !isAdmin ? colors.stone300 : Colors.red} />
             </TouchableOpacity>
           </View>
         </View>
@@ -354,10 +357,20 @@ export default function NeedsScreen() {
         />
       </View>
 
+      {/* Subscription gating banner */}
+      {!isPaid && !isAdmin && (
+        <View style={styles.subBanner}>
+          <Text style={styles.subBannerText}>
+            Activate your subscription to create, edit, or manage needs and fundraisers.
+          </Text>
+        </View>
+      )}
+
       {/* FAB */}
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, !isPaid && !isAdmin && styles.fabDisabled]}
         activeOpacity={0.8}
+        disabled={!isPaid && !isAdmin}
         onPress={() => { setEditNeed(null); setShowCreateModal(true); }}
       >
         <Plus size={28} color={Colors.white} strokeWidth={2.5} />
@@ -678,6 +691,25 @@ const styles = StyleSheet.create({
   },
 
   /* FAB */
+  subBanner: {
+    position: 'absolute',
+    bottom: 170,
+    left: 20,
+    right: 20,
+    backgroundColor: Colors.amberFaint,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+  },
+  subBannerText: {
+    fontFamily: 'Inter-Regular',
+    fontSize: FontSize.sm,
+    color: Colors.amber,
+    textAlign: 'center',
+    lineHeight: 19,
+  },
+  fabDisabled: {
+    backgroundColor: Colors.stone300,
+  },
   fab: {
     position: 'absolute',
     bottom: 100,

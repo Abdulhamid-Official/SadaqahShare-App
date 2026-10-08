@@ -136,27 +136,24 @@ export default function VoteModal({ visible, onClose, poll, mosqueName, donorId 
     setError(null);
 
     try {
-      // 1. Insert vote
-      const { error: voteErr } = await supabase.from('votes').insert({
-        donor_id: donorId,
-        poll_id: poll.id,
-        option_id: selectedOptionId,
-        tokens_spent: poll.tokens_to_vote,
-      });
-      if (voteErr) throw voteErr;
-
-      // 2. Decrement tokens
-      const newBalance = Math.max(0, tokenBalance - poll.tokens_to_vote);
-      const { error: tokenErr } = await supabase
-        .from('donor_mosque_tokens')
-        .upsert({
-          donor_id: donorId,
-          mosque_id: poll.mosque_id,
-          token_balance: newBalance,
-        }, { onConflict: 'donor_id,mosque_id' });
-      if (tokenErr) throw tokenErr;
+      // Use server-side function for atomic vote + token deduction
+      const { data: result, error: rpcErr } = await supabase
+        .rpc('deduct_tokens_for_vote', {
+          p_donor_id: donorId,
+          p_mosque_id: poll.mosque_id,
+          p_poll_id: poll.id,
+          p_option_id: selectedOptionId,
+          p_amount: poll.tokens_to_vote,
+        });
+      if (rpcErr) throw rpcErr;
+      if (result && !result.success) {
+        setError(result.error ?? 'Failed to cast vote.');
+        setSubmitting(false);
+        return;
+      }
 
       // Update local state so the UI reflects the change immediately
+      const newBalance = Math.max(0, tokenBalance - poll.tokens_to_vote);
       setTokenBalance(newBalance);
 
       setTokensSpent(poll.tokens_to_vote);

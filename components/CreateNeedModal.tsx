@@ -201,6 +201,22 @@ export default function CreateNeedModal({
     setError(null);
 
     try {
+      // Validate token reasonableness via server function
+      const { data: validation, error: validationErr } = await supabase
+        .rpc('validate_token_reasonableness', {
+          p_name: name.trim(),
+          p_description: description.trim(),
+          p_quantity: parseInt(quantity, 10),
+          p_tokens_per_unit: parseInt(tokensPerUnit, 10),
+          p_category: needType === 'money' ? 'General' : category,
+        });
+      if (validationErr) throw validationErr;
+      if (validation && !validation.valid) {
+        setError(validation.reason ?? 'Token value seems unreasonable. Please adjust tokens per unit.');
+        setSubmitting(false);
+        return;
+      }
+
       const payload: Record<string, unknown> = {
         name: name.trim(),
         description: description.trim() || null,

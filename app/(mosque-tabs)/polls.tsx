@@ -43,7 +43,7 @@ interface PollWithDetails extends Poll {
 }
 
 export default function PollsScreen() {
-  const { mosqueAccount, isAdmin } = useAppContext();
+  const { mosqueAccount, isAdmin, isPaid } = useAppContext();
   const { paddingHorizontal, maxWidth } = useContentWidth();
   const { colors } = useTheme();
 
@@ -356,39 +356,43 @@ export default function PollsScreen() {
             <TouchableOpacity
               style={styles.closeBtn}
               activeOpacity={0.7}
+              disabled={!isPaid && !isAdmin}
               onPress={() => handleClosePoll(item)}
             >
-              <XCircle size={16} color={Colors.amber} />
-              <Text style={styles.closeBtnText}>Close Poll</Text>
+              <XCircle size={16} color={!isPaid && !isAdmin ? colors.stone300 : Colors.amber} />
+              <Text style={[styles.closeBtnText, !isPaid && !isAdmin && { color: colors.stone300 }]}>Close Poll</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity
             style={styles.editPollBtn}
             activeOpacity={0.7}
+            disabled={!isPaid && !isAdmin}
             onPress={() => handleEditPoll(item)}
           >
-            <Pencil size={16} color={colors.textMuted} />
-            <Text style={styles.editPollBtnText}>Edit</Text>
+            <Pencil size={16} color={!isPaid && !isAdmin ? colors.stone300 : colors.textMuted} />
+            <Text style={[styles.editPollBtnText, !isPaid && !isAdmin && { color: colors.stone300 }]}>Edit</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.archivePollBtn}
             activeOpacity={0.7}
+            disabled={!isPaid && !isAdmin}
             onPress={() => handleArchivePoll(item)}
           >
             {item.archived ? (
-              <ArchiveRestore size={16} color={colors.textMuted} />
+              <ArchiveRestore size={16} color={!isPaid && !isAdmin ? colors.stone300 : colors.textMuted} />
             ) : (
-              <Archive size={16} color={colors.textMuted} />
+              <Archive size={16} color={!isPaid && !isAdmin ? colors.stone300 : colors.textMuted} />
             )}
-            <Text style={styles.archivePollBtnText}>{item.archived ? 'Restore' : 'Archive'}</Text>
+            <Text style={[styles.archivePollBtnText, !isPaid && !isAdmin && { color: colors.stone300 }]}>{item.archived ? 'Restore' : 'Archive'}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.deletePollBtn}
             activeOpacity={0.7}
+            disabled={!isPaid && !isAdmin}
             onPress={() => handleDeletePoll(item)}
           >
-            <Trash2 size={16} color={Colors.red} />
-            <Text style={styles.deletePollBtnText}>Delete</Text>
+            <Trash2 size={16} color={!isPaid && !isAdmin ? colors.stone300 : Colors.red} />
+            <Text style={[styles.deletePollBtnText, !isPaid && !isAdmin && { color: colors.stone300 }]}>Delete</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -443,10 +447,20 @@ export default function PollsScreen() {
         />
       </View>
 
+      {/* Subscription banner */}
+      {!isPaid && !isAdmin && (
+        <View style={styles.subBanner}>
+          <Text style={styles.subBannerText}>
+            Activate your subscription to create and manage polls.
+          </Text>
+        </View>
+      )}
+
       {/* FAB */}
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, !isPaid && !isAdmin && styles.fabDisabled]}
         activeOpacity={0.8}
+        disabled={!isPaid && !isAdmin}
         onPress={() => { setEditPoll(null); setEditOptions([]); setShowCreateModal(true); }}
       >
         <Plus size={28} color={Colors.white} strokeWidth={2.5} />
@@ -831,6 +845,16 @@ const styles = StyleSheet.create({
     }),
   },
 
+  subBanner: {
+    position: 'absolute', bottom: 170, left: 20, right: 20,
+    backgroundColor: Colors.amberFaint, borderRadius: Radius.md, padding: Spacing.md,
+  },
+  subBannerText: {
+    fontFamily: 'Inter-Regular', fontSize: FontSize.sm, color: Colors.amber, textAlign: 'center', lineHeight: 19,
+  },
+  fabDisabled: {
+    backgroundColor: Colors.stone300,
+  },
   // Confirmation modals
   overlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.5)' },

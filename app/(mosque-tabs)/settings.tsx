@@ -26,15 +26,23 @@ import {
   X,
   Moon,
   Sun,
+  Trash2,
+  ShieldCheck,
+  CheckCircle,
+  AlertCircle,
+  Calendar,
 } from 'lucide-react-native';
+import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 
 export default function SettingsScreen() {
-  const { mosqueAccount, mosqueName, mosqueCity, mosqueState, isPaid, isAdmin, logout } =
+  const { mosqueAccount, mosqueName, mosqueCity, mosqueState, isPaid, isAdmin, logout, session } =
     useAppContext();
 
-  const [confirmAction, setConfirmAction] = useState<'signout' | 'switch' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'signout' | 'switch' | 'delete' | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const { colors, isDark, toggleTheme } = useTheme();
 
   const handleConfirm = async () => {
@@ -44,6 +52,21 @@ export default function SettingsScreen() {
     } else if (confirmAction === 'switch') {
       await logout();
       router.replace('/role-select' as any);
+    } else if (confirmAction === 'delete') {
+      if (!mosqueAccount) return;
+      setDeleting(true);
+      setDeleteError(null);
+      try {
+        const { error } = await supabase.rpc('delete_mosque_account', { p_mosque_account_id: mosqueAccount.id });
+        if (error) throw error;
+        await supabase.auth.signOut();
+        router.replace('/');
+        return;
+      } catch (e: any) {
+        setDeleteError(e.message || 'Failed to delete account.');
+        setDeleting(false);
+        return;
+      }
     }
     setConfirmAction(null);
   };
@@ -209,6 +232,71 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Account Info */}
+        <View style={styles.menuSection}>
+          <Text style={[styles.menuSectionTitle, { color: colors.textMuted }]}>Account Info</Text>
+
+          <View style={[styles.menuItem, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+            <View style={[styles.menuIconCircle, { backgroundColor: Colors.stone100 }]}>
+              <Calendar size={18} color={colors.textMuted} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Member Since</Text>
+              <Text style={{ fontFamily: 'Inter-Regular', fontSize: FontSize.xs, color: colors.textMuted, marginTop: 2 }}>
+                {mosqueAccount?.created_at ? new Date(mosqueAccount.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.menuItem, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+            <View style={[styles.menuIconCircle, { backgroundColor: session?.user?.emailConfirmed ? Colors.primaryFaint : Colors.amberFaint }]}>
+              {session?.user?.emailConfirmed ? <CheckCircle size={18} color={Colors.primary} /> : <AlertCircle size={18} color={Colors.amber} />}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Email Status</Text>
+              <Text style={{ fontFamily: 'Inter-Regular', fontSize: FontSize.xs, color: session?.user?.emailConfirmed ? Colors.primary : Colors.amber, marginTop: 2 }}>
+                {session?.user?.emailConfirmed ? 'Verified' : 'Not verified'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.menuItem, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+            <View style={[styles.menuIconCircle, { backgroundColor: '#ccfbf1' }]}>
+              <ShieldCheck size={18} color={Colors.teal} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Consent Status</Text>
+              <Text style={{ fontFamily: 'Inter-Regular', fontSize: FontSize.xs, color: session?.profile?.terms_accepted ? Colors.teal : Colors.amber, marginTop: 2 }}>
+                {session?.profile?.terms_accepted ? `Accepted v${session?.profile?.policy_version ?? '1.0'}` : 'Not accepted'}
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.menuItem, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}
+            activeOpacity={0.7}
+            onPress={() => router.push('/terms' as any)}
+          >
+            <View style={[styles.menuIconCircle, { backgroundColor: Colors.stone100 }]}>
+              <Info size={18} color={colors.textMuted} />
+            </View>
+            <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>View Terms of Service</Text>
+            <ChevronRight size={18} color={colors.stone400} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.menuItem, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}
+            activeOpacity={0.7}
+            onPress={() => router.push('/privacy' as any)}
+          >
+            <View style={[styles.menuIconCircle, { backgroundColor: Colors.stone100 }]}>
+              <Info size={18} color={colors.textMuted} />
+            </View>
+            <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>View Privacy Policy</Text>
+            <ChevronRight size={18} color={colors.stone400} />
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.menuSection}>
           <Text style={[styles.menuSectionTitle, { color: colors.textMuted }]}>General</Text>
 
@@ -258,6 +346,19 @@ export default function SettingsScreen() {
             </View>
             <Text style={[styles.dangerItemText, { color: Colors.red }]}>Sign Out</Text>
           </TouchableOpacity>
+
+          {!isAdmin && (
+            <TouchableOpacity
+              style={[styles.dangerItem, { backgroundColor: colors.cardBg }]}
+              activeOpacity={0.7}
+              onPress={() => { setConfirmAction('delete'); setDeleteError(null); }}
+            >
+              <View style={[styles.menuIconCircle, { backgroundColor: Colors.redFaint }]}>
+                <Trash2 size={18} color={Colors.red} />
+              </View>
+              <Text style={[styles.dangerItemText, { color: Colors.red }]}>Delete Mosque Account</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <Text style={[styles.footerText, { color: colors.stone400 }]}>
@@ -274,13 +375,16 @@ export default function SettingsScreen() {
               <X size={20} color={Colors.textSecondary} />
             </TouchableOpacity>
             <Text style={[styles.confirmTitle, { color: colors.textPrimary }]}>
-              {confirmAction === 'signout' ? 'Sign Out' : 'Switch Role'}
+              {confirmAction === 'signout' ? 'Sign Out' : confirmAction === 'delete' ? 'Delete Mosque Account' : 'Switch Role'}
             </Text>
             <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
               {confirmAction === 'signout'
                 ? 'Are you sure you want to sign out of your mosque account?'
-                : 'Switch to a different role? You can always come back.'}
+                : confirmAction === 'delete'
+                  ? 'This will permanently delete your mosque account. All needs, polls, and announcements will be archived. Your mosque data and donation history will be preserved for audit purposes. This action cannot be undone.'
+                  : 'Switch to a different role? You can always come back.'}
             </Text>
+            {deleteError ? <Text style={{ fontFamily: 'Inter-Regular', fontSize: FontSize.sm, color: Colors.red, marginBottom: Spacing.md, textAlign: 'center' }}>{deleteError}</Text> : null}
             <View style={styles.confirmButtons}>
               <TouchableOpacity
                 style={[styles.cancelButton, { borderColor: colors.stone300 }]}
@@ -290,12 +394,13 @@ export default function SettingsScreen() {
                 <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.confirmButton, confirmAction === 'signout' && styles.dangerButton]}
+                style={[styles.confirmButton, (confirmAction === 'signout' || confirmAction === 'delete') && styles.dangerButton, deleting && { opacity: 0.7 }]}
                 onPress={handleConfirm}
                 activeOpacity={0.7}
+                disabled={deleting}
               >
                 <Text style={styles.confirmButtonText}>
-                  {confirmAction === 'signout' ? 'Sign Out' : 'Switch'}
+                  {confirmAction === 'delete' ? (deleting ? 'Deleting...' : 'Delete') : confirmAction === 'signout' ? 'Sign Out' : 'Switch'}
                 </Text>
               </TouchableOpacity>
             </View>

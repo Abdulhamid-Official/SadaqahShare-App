@@ -28,6 +28,7 @@ import { useAppContext } from '@/lib/context';
 import { MosqueAccount, Mosque } from '@/lib/types';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 import { useDeviceSize } from '@/lib/responsive';
+import { ConsentCheckbox } from '@/components/ConsentCheckbox';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -119,6 +120,8 @@ export default function MosqueRegisterScreen() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
   // Focus tracking
   const [focusedField, setFocusedField] = useState<string | null>(null);
@@ -167,6 +170,9 @@ export default function MosqueRegisterScreen() {
     if (!address.trim()) errors.address = 'Address is required.';
     if (!city.trim()) errors.city = 'City is required.';
     if (!state.trim()) errors.state = 'State is required.';
+
+    if (!termsAccepted) errors.terms = 'You must accept the Terms of Service.';
+    if (!privacyAccepted) errors.privacy = 'You must accept the Privacy Policy.';
 
     // Validate needs
     let hasValidNeed = false;
@@ -263,12 +269,17 @@ export default function MosqueRegisterScreen() {
         return;
       }
 
-      // 4. Create profile linking auth user to mosque account
+      // 4. Create profile linking auth user to mosque account (with consent)
       await supabase.from('profiles').upsert({
         id: authId,
         role: 'mosque',
         mosque_account_id: accountData.id,
         email: trimmedEmailLower,
+        terms_accepted: true,
+        terms_accepted_at: new Date().toISOString(),
+        privacy_accepted: true,
+        privacy_accepted_at: new Date().toISOString(),
+        policy_version: '1.0',
       });
 
       // 5. Insert needs
@@ -837,6 +848,28 @@ export default function MosqueRegisterScreen() {
                 <Plus size={18} color={Colors.teal} />
                 <Text style={styles.addNeedText}>Add Another Need</Text>
               </TouchableOpacity>
+            </View>
+
+            {/* ─── Consent ─── */}
+            <View style={styles.section}>
+              <View style={[styles.sectionCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+                <ConsentCheckbox
+                  label="I agree to the"
+                  linkText="Terms of Service"
+                  onLinkPress={() => router.push('/terms' as any)}
+                  checked={termsAccepted}
+                  onToggle={() => { setTermsAccepted(!termsAccepted); setFieldErrors((prev) => ({ ...prev, terms: '' })); }}
+                />
+                {fieldErrors.terms ? <Text style={styles.fieldError}>{fieldErrors.terms}</Text> : null}
+                <ConsentCheckbox
+                  label="I agree to the"
+                  linkText="Privacy Policy"
+                  onLinkPress={() => router.push('/privacy' as any)}
+                  checked={privacyAccepted}
+                  onToggle={() => { setPrivacyAccepted(!privacyAccepted); setFieldErrors((prev) => ({ ...prev, privacy: '' })); }}
+                />
+                {fieldErrors.privacy ? <Text style={styles.fieldError}>{fieldErrors.privacy}</Text> : null}
+              </View>
             </View>
 
             {/* ─── Error ─── */}

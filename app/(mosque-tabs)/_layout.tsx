@@ -47,6 +47,10 @@ export default function MosqueTabsLayout() {
       }
     } else if (session?.user && role === 'mosque') {
       redirected.current = false;
+      // Check consent — if not accepted, redirect to consent screen
+      if (session.profile && (!session.profile.terms_accepted || !session.profile.privacy_accepted)) {
+        router.replace('/consent' as any);
+      }
     }
   }, [authLoading, session, role, router]);
 

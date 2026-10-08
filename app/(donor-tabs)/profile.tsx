@@ -6,6 +6,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Modal,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -22,6 +23,12 @@ import {
   Sun,
   Building2,
   ChevronRight,
+  Bell,
+  ShieldCheck,
+  Trash2,
+  CheckCircle,
+  AlertCircle,
+  Calendar,
 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
@@ -29,7 +36,7 @@ import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 import { useRealtimeTable } from '@/hooks/useRealtimeTable';
 
 export default function ProfileScreen() {
-  const { donor, isAdmin, logout } = useAppContext();
+  const { donor, isAdmin, logout, session } = useAppContext();
   const { colors, isDark, toggleTheme } = useTheme();
   const [totalTokens, setTotalTokens] = useState(0);
   const [confirmAction, setConfirmAction] = useState<'signout' | 'switch' | null>(null);
@@ -37,6 +44,12 @@ export default function ProfileScreen() {
   const [leaveMosque, setLeaveMosque] = useState<{ id: string; name: string; member_id: string } | null>(null);
   const [leaving, setLeaving] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
+  const [notifAnnouncements, setNotifAnnouncements] = useState(true);
+  const [notifPolls, setNotifPolls] = useState(true);
+  const [notifNeeds, setNotifNeeds] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<'confirm' | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const fetchTokens = useCallback(async () => {
     if (!donor || isAdmin) return;
@@ -86,6 +99,40 @@ export default function ProfileScreen() {
   }, [donor, isAdmin, fetchTokens, fetchMosques]);
 
   useRealtimeTable('donor_mosque_tokens', donor ? `donor_id=eq.${donor.id}` : null, fetchTokens, !!donor && !isAdmin);
+
+  // Load notification preferences from profile
+  useEffect(() => {
+    if (session?.profile) {
+      setNotifAnnouncements(session.profile.notif_announcements ?? true);
+      setNotifPolls(session.profile.notif_polls ?? true);
+      setNotifNeeds(session.profile.notif_needs ?? true);
+    }
+  }, [session?.profile]);
+
+  const updateNotifPref = async (pref: 'notif_announcements' | 'notif_polls' | 'notif_needs', value: boolean) => {
+    if (!session?.user?.id) return;
+    try {
+      await supabase.from('profiles').update({ [pref]: value }).eq('id', session.user.id);
+    } catch (err) {
+      console.error('Failed to update notification preference:', err);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!donor) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const { data, error } = await supabase.rpc('delete_donor_account', { p_donor_id: donor.id });
+      if (error) throw error;
+      await supabase.auth.signOut();
+      router.replace('/');
+    } catch (e: any) {
+      setDeleteError(e.message || 'Failed to delete account. Please try again.');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const getInitial = (name: string) => name.charAt(0).toUpperCase();
 
@@ -242,6 +289,131 @@ export default function ProfileScreen() {
           </View>
         )}
 
+        {/* Account Info Section */}
+        <View style={styles.menuSection}>
+          <Text style={styles.menuSectionTitle}>Account</Text>
+
+          <View style={[styles.menuItem, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+            <View style={[styles.menuIconCircle, { backgroundColor: Colors.stone100 }]}>
+              <Calendar size={18} color={colors.textMuted} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Member Since</Text>
+              <Text style={[styles.mosqueCityText, { color: colors.textMuted }]}>
+                {donor.created_at ? new Date(donor.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.menuItem, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+            <View style={[styles.menuIconCircle, { backgroundColor: session?.user?.emailConfirmed ? Colors.primaryFaint : Colors.amberFaint }]}>
+              {session?.user?.emailConfirmed ? <CheckCircle size={18} color={Colors.primary} /> : <AlertCircle size={18} color={Colors.amber} />}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Email Status</Text>
+              <Text style={[styles.mosqueCityText, { color: session?.user?.emailConfirmed ? Colors.primary : Colors.amber }]}>
+                {session?.user?.emailConfirmed ? 'Verified' : 'Not verified'}
+              </Text>
+            </View>
+          </View>
+
+          <View style={[styles.menuItem, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+            <View style={[styles.menuIconCircle, { backgroundColor: Colors.primaryFaint }]}>
+              <User size={18} color={Colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Role</Text>
+              <Text style={[styles.mosqueCityText, { color: colors.textMuted }]}>Donor</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Notification Preferences */}
+        {!isAdmin && (
+          <View style={styles.menuSection}>
+            <Text style={styles.menuSectionTitle}>Notifications</Text>
+
+            <View style={[styles.menuItem, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+              <View style={[styles.menuIconCircle, { backgroundColor: Colors.primaryFaint }]}>
+                <Bell size={18} color={Colors.primary} />
+              </View>
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Announcements</Text>
+              <Switch
+                value={notifAnnouncements}
+                onValueChange={(v) => { setNotifAnnouncements(v); updateNotifPref('notif_announcements', v); }}
+                trackColor={{ false: Colors.stone200, true: Colors.primary }}
+              />
+            </View>
+
+            <View style={[styles.menuItem, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+              <View style={[styles.menuIconCircle, { backgroundColor: Colors.blueFaint }]}>
+                <Bell size={18} color={Colors.blue} />
+              </View>
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Polls</Text>
+              <Switch
+                value={notifPolls}
+                onValueChange={(v) => { setNotifPolls(v); updateNotifPref('notif_polls', v); }}
+                trackColor={{ false: Colors.stone200, true: Colors.blue }}
+              />
+            </View>
+
+            <View style={[styles.menuItem, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+              <View style={[styles.menuIconCircle, { backgroundColor: '#ccfbf1' }]}>
+                <Bell size={18} color={Colors.teal} />
+              </View>
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>New Needs</Text>
+              <Switch
+                value={notifNeeds}
+                onValueChange={(v) => { setNotifNeeds(v); updateNotifPref('notif_needs', v); }}
+                trackColor={{ false: Colors.stone200, true: Colors.teal }}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Consent Status */}
+        <View style={styles.menuSection}>
+          <Text style={styles.menuSectionTitle}>Privacy & Terms</Text>
+
+          <View style={[styles.menuItem, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
+            <View style={[styles.menuIconCircle, { backgroundColor: '#ccfbf1' }]}>
+              <ShieldCheck size={18} color={Colors.teal} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>Terms Accepted</Text>
+              <Text style={[styles.mosqueCityText, { color: session?.profile?.terms_accepted ? Colors.teal : Colors.amber }]}>
+                {session?.profile?.terms_accepted
+                  ? `Accepted v${session?.profile?.policy_version ?? '1.0'}`
+                  : 'Not accepted'}
+              </Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.menuItem, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}
+            activeOpacity={0.7}
+            onPress={() => router.push('/terms' as any)}
+          >
+            <View style={[styles.menuIconCircle, { backgroundColor: Colors.stone100 }]}>
+              <Info size={18} color={colors.textMuted} />
+            </View>
+            <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>View Terms of Service</Text>
+            <ChevronRight size={18} color={Colors.stone400} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.menuItem, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}
+            activeOpacity={0.7}
+            onPress={() => router.push('/privacy' as any)}
+          >
+            <View style={[styles.menuIconCircle, { backgroundColor: Colors.stone100 }]}>
+              <Info size={18} color={colors.textMuted} />
+            </View>
+            <Text style={[styles.menuItemText, { color: colors.textPrimary }]}>View Privacy Policy</Text>
+            <ChevronRight size={18} color={Colors.stone400} />
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.dangerSection}>
           <Text style={styles.dangerSectionTitle}>Account</Text>
 
@@ -255,6 +427,19 @@ export default function ProfileScreen() {
             </View>
             <Text style={styles.dangerItemText}>Sign Out</Text>
           </TouchableOpacity>
+
+          {!isAdmin && (
+            <TouchableOpacity
+              style={[styles.dangerItem, { backgroundColor: colors.cardBg }]}
+              activeOpacity={0.7}
+              onPress={() => { setDeleteTarget('confirm'); setDeleteError(null); }}
+            >
+              <View style={[styles.menuIconCircle, { backgroundColor: Colors.redFaint }]}>
+                <Trash2 size={18} color={Colors.red} />
+              </View>
+              <Text style={styles.dangerItemText}>Delete Account</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <Text style={[styles.footerText, { color: colors.textMuted }]}>
@@ -324,6 +509,39 @@ export default function ProfileScreen() {
                 disabled={leaving}
               >
                 <Text style={styles.confirmButtonText}>{leaving ? 'Leaving…' : 'Leave'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Account Deletion Modal */}
+      <Modal visible={deleteTarget !== null} transparent animationType="fade">
+        <View style={styles.overlay}>
+          <TouchableOpacity style={[styles.backdrop, { backgroundColor: colors.modalOverlay }]} activeOpacity={1} onPress={() => setDeleteTarget(null)} />
+          <View style={[styles.confirmCard, { backgroundColor: colors.cardBg }]}>
+            <TouchableOpacity style={styles.closeBtn} onPress={() => setDeleteTarget(null)}>
+              <X size={20} color={Colors.textSecondary} />
+            </TouchableOpacity>
+            <Text style={[styles.confirmTitle, { color: Colors.red }]}>Delete Account</Text>
+            <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
+              This will permanently delete your account. Your personal information will be anonymized. Your donation history and token records will be preserved for audit purposes but no longer linked to you.
+            </Text>
+            <Text style={[styles.confirmMessage, { color: Colors.red, fontFamily: 'Inter-SemiBold' }]}>
+              This action cannot be undone.
+            </Text>
+            {deleteError ? <Text style={styles.leaveErrorText}>{deleteError}</Text> : null}
+            <View style={styles.confirmButtons}>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setDeleteTarget(null)} activeOpacity={0.7}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmButton, styles.dangerConfirmButton, deleting && { opacity: 0.7 }]}
+                onPress={handleDeleteAccount}
+                activeOpacity={0.7}
+                disabled={deleting}
+              >
+                <Text style={styles.confirmButtonText}>{deleting ? 'Deleting...' : 'Delete'}</Text>
               </TouchableOpacity>
             </View>
           </View>

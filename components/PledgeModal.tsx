@@ -139,6 +139,9 @@ export default function PledgeModal({ visible, onClose, need, mosqueName, mosque
       donorId = newDonor.id;
     }
 
+    // Generate idempotency key to prevent duplicate pledges
+    const idempotencyKey = `${need.id}-${donorId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
     const { error: pledgeErr } = await supabase.from('pledges').insert({
       need_id: need.id,
       donor_id: donorId,
@@ -149,6 +152,7 @@ export default function PledgeModal({ visible, onClose, need, mosqueName, mosque
       notes: notes.trim() || null,
       status: 'pending',
       tokens_earned: tokens,
+      idempotency_key: idempotencyKey,
     });
     if (pledgeErr) throw pledgeErr;
 
