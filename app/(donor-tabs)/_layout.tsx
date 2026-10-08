@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Tabs } from 'expo-router';
 import { StyleSheet, Platform, View, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,10 +20,16 @@ export default function DonorTabsLayout() {
   const { colors } = useTheme();
   const router = useRouter();
   const { role, authLoading, session } = useAppContext();
+  const redirected = useRef(false);
 
   useEffect(() => {
     if (!authLoading && (!session?.user || role !== 'donor')) {
-      router.replace('/');
+      if (!redirected.current) {
+        redirected.current = true;
+        router.replace('/');
+      }
+    } else if (session?.user && role === 'donor') {
+      redirected.current = false;
     }
   }, [authLoading, session, role, router]);
 

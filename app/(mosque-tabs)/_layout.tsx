@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Tabs } from 'expo-router';
 import { StyleSheet, Platform, View, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,11 +35,17 @@ export default function MosqueTabsLayout() {
   const router = useRouter();
   const { mosqueAccount, isAdmin, role, authLoading, session } = useAppContext();
   const [unreadCount, setUnreadCount] = useState(0);
+  const redirected = useRef(false);
 
   // Route protection
   useEffect(() => {
     if (!authLoading && (!session?.user || role !== 'mosque')) {
-      router.replace('/');
+      if (!redirected.current) {
+        redirected.current = true;
+        router.replace('/');
+      }
+    } else if (session?.user && role === 'mosque') {
+      redirected.current = false;
     }
   }, [authLoading, session, role, router]);
 

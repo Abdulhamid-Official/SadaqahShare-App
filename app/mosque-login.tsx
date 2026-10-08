@@ -63,7 +63,7 @@ export default function MosqueLoginScreen() {
           setLoading(false);
           return;
         }
-        setError('Incorrect email or password.');
+        setError('Incorrect email or password. If you registered before our recent update, your account may need to be recreated — please use "Register Your Mosque" below.');
         setLoading(false);
         return;
       }
@@ -98,14 +98,9 @@ export default function MosqueLoginScreen() {
     setLoading(true);
     setError(null);
     try {
-      const redirectTo =
-        typeof window !== 'undefined' && window.location?.origin
-          ? `${window.location.origin}/reset-password`
-          : undefined;
       const { error: resendError } = await supabase.auth.resend({
         type: 'signup',
         email: trimmedEmail,
-        options: redirectTo ? { emailRedirectTo: redirectTo } : undefined,
       });
       if (resendError) {
         setError(resendError.message);

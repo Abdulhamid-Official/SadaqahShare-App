@@ -194,15 +194,10 @@ export default function MosqueRegisterScreen() {
     try {
       const trimmedEmailLower = email.trim().toLowerCase();
 
-      // 1. Create Supabase Auth account
-      const redirectTo =
-        typeof window !== 'undefined' && window.location?.origin
-          ? `${window.location.origin}/mosque-login`
-          : undefined;
+      // 1. Create Supabase Auth account (no custom redirect — use Supabase default Site URL)
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: trimmedEmailLower,
         password,
-        options: redirectTo ? { emailRedirectTo: redirectTo } : undefined,
       });
 
       if (authError) {

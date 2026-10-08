@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { AppState, Donor, MosqueAccount, Mosque, UserRole, Profile } from './types';
@@ -30,6 +30,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<{ user: { id: string; email: string; emailConfirmed: boolean } | null; profile: Profile | null } | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
+  // Track which user ID we've loaded profile data for, to avoid redundant loads
+  const loadedUserId = useRef<string | null>(null);
+
   const clearAppState = useCallback(() => {
     setRole(null);
     setDonor(null);
@@ -40,9 +43,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setIsPaid(false);
     setIsAdmin(false);
     setSession(null);
+    loadedUserId.current = null;
   }, []);
 
   const loadProfileData = useCallback(async (user: User) => {
+    // Skip if already loaded for this same user
+    if (loadedUserId.current === user.id) {
+      setAuthLoading(false);
+      return;
+    }
+    loadedUserId.current = user.id;
+
     try {
       const { data: profile, error: profileErr } = await supabase
         .from('profiles')
@@ -134,17 +145,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (!mounted) return;
 
-      (async () => {
-        if (event === 'SIGNED_OUT' || !newSession?.user) {
-          clearAppState();
-          setAuthLoading(false);
-          return;
-        }
+      if (event === 'SIGNED_OUT' || !newSession?.user) {
+        clearAppState();
+        setAuthLoading(false);
+        return;
+      }
 
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-          await loadProfileData(newSession.user);
-        }
-      })();
+      // Only reload on actual sign-in or user update, not token refresh
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        loadProfileData(newSession.user);
+      }
     });
 
     return () => {
@@ -166,6 +176,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       if (currentSession?.user) {
+        // Force reload by clearing the loaded user ID
+        loadedUserId.current = null;
         await loadProfileData(currentSession.user);
       }
     } catch (err) {

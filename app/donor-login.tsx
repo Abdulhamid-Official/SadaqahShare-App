@@ -20,10 +20,9 @@ import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 type Mode = 'signin' | 'signup';
 type Stage = 'form' | 'verify-email';
 
-const REDIRECT_URL =
-  typeof window !== 'undefined' && window.location?.origin
-    ? `${window.location.origin}/donor-login`
-    : undefined;
+// Don't pass a custom redirect URL — Supabase will use its configured Site URL.
+// The webcontainer preview host isn't in the allowed redirect URLs list,
+// so passing it causes the email link to fail. Let Supabase use its default.
 
 export default function DonorLoginScreen() {
   const { setRole, setDonor, setIsAdmin } = useAppContext();
@@ -86,7 +85,6 @@ export default function DonorLoginScreen() {
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email: trimmedEmail,
       password,
-      options: REDIRECT_URL ? { emailRedirectTo: REDIRECT_URL } : undefined,
     });
 
     if (signUpError) {
@@ -103,28 +101,47 @@ export default function DonorLoginScreen() {
       return;
     }
 
-    // Create donor record
-    const { data: newDonor, error: donorErr } = await supabase
+    // Check if a donor record already exists for this email (avoids duplicate key error)
+    const { data: existingDonor } = await supabase
       .from('donors')
-      .insert({
-        email: trimmedEmail,
-        name: trimmedName,
-        auth_id: signUpData.user.id,
-      })
-      .select('*')
-      .single();
+      .select('id, name')
+      .eq('email', trimmedEmail)
+      .maybeSingle();
 
-    if (donorErr) {
-      console.error('Donor creation error:', donorErr);
-      setError('Account created but profile setup failed. Please contact support.');
-      return;
+    let donorId: string;
+
+    if (existingDonor) {
+      // Donor record exists from the old prototype — link it to the new auth user
+      donorId = (existingDonor as any).id;
+      await supabase
+        .from('donors')
+        .update({ auth_id: signUpData.user.id, name: trimmedName || (existingDonor as any).name })
+        .eq('id', donorId);
+    } else {
+      // Create new donor record
+      const { data: newDonor, error: donorErr } = await supabase
+        .from('donors')
+        .insert({
+          email: trimmedEmail,
+          name: trimmedName,
+          auth_id: signUpData.user.id,
+        })
+        .select('*')
+        .single();
+
+      if (donorErr) {
+        console.error('Donor creation error:', donorErr);
+        setError('Account created but profile setup failed. Please contact support.');
+        return;
+      }
+      donorId = newDonor.id;
     }
 
-    // Create profile linking auth user to donor
+    // Create profile linking auth user to donor (upsert handles re-tries)
     const { error: profileErr } = await supabase.from('profiles').upsert({
       id: signUpData.user.id,
       role: 'donor',
-      donor_id: newDonor.id,
+      donor_id: donorId,
       email: trimmedEmail,
     });
 
@@ -142,7 +159,6 @@ export default function DonorLoginScreen() {
     // If session was created (email confirmation disabled), navigate
     setIsAdmin(false);
     setRole('donor');
-    setDonor(newDonor);
     router.replace('/(donor-tabs)');
   };
 
@@ -198,7 +214,6 @@ export default function DonorLoginScreen() {
       const { error: resendError } = await supabase.auth.resend({
         type: 'signup',
         email: trimmedEmail,
-        options: REDIRECT_URL ? { emailRedirectTo: REDIRECT_URL } : undefined,
       });
       if (resendError) {
         setError(resendError.message);
