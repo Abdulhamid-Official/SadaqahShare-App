@@ -98,9 +98,14 @@ export default function MosqueLoginScreen() {
     setLoading(true);
     setError(null);
     try {
+      const redirectTo =
+        typeof window !== 'undefined' && window.location?.origin
+          ? `${window.location.origin}/reset-password`
+          : undefined;
       const { error: resendError } = await supabase.auth.resend({
         type: 'signup',
         email: trimmedEmail,
+        options: redirectTo ? { emailRedirectTo: redirectTo } : undefined,
       });
       if (resendError) {
         setError(resendError.message);

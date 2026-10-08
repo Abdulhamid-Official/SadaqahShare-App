@@ -12,25 +12,135 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Heart, ArrowLeft, Eye, EyeOff, CheckCircle, MailWarning } from 'lucide-react-native';
+import { Heart, ArrowLeft, Eye, EyeOff, MailWarning } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 
-type Stage = 'input' | 'welcome-back' | 'verify-email';
+type Mode = 'signin' | 'signup';
+type Stage = 'form' | 'verify-email';
+
+const REDIRECT_URL =
+  typeof window !== 'undefined' && window.location?.origin
+    ? `${window.location.origin}/reset-password`
+    : undefined;
 
 export default function DonorLoginScreen() {
   const { setRole, setDonor, setIsAdmin } = useAppContext();
   const { colors } = useTheme();
 
+  const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stage, setStage] = useState<Stage>('input');
+  const [stage, setStage] = useState<Stage>('form');
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+
+  const switchMode = (newMode: Mode) => {
+    setMode(newMode);
+    setError(null);
+    setInfoMessage(null);
+  };
+
+  const handleSignIn = async (trimmedEmail: string) => {
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      email: trimmedEmail,
+      password,
+    });
+
+    if (signInError) {
+      if (signInError.message.includes('not confirmed')) {
+        setStage('verify-email');
+        setInfoMessage('Your email has not been verified yet. Click the link in the email we sent, or resend it below.');
+        return;
+      }
+      setError('Incorrect email or password. If you don\'t have an account, switch to Sign Up.');
+      return;
+    }
+
+    if (!data.user) {
+      setError('Sign in failed. Please try again.');
+      return;
+    }
+
+    if (!data.user.email_confirmed_at) {
+      setStage('verify-email');
+      setInfoMessage('Your email has not been verified yet. Click the link in the email we sent, or resend it below.');
+      return;
+    }
+
+    setIsAdmin(false);
+    setRole('donor');
+    router.replace('/(donor-tabs)');
+  };
+
+  const handleSignUp = async (trimmedEmail: string, trimmedName: string) => {
+    if (!trimmedName) {
+      setError('Please enter your name to create an account.');
+      return;
+    }
+
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email: trimmedEmail,
+      password,
+      options: REDIRECT_URL ? { emailRedirectTo: REDIRECT_URL } : undefined,
+    });
+
+    if (signUpError) {
+      setError(signUpError.message);
+      return;
+    }
+
+    if (!signUpData.user) {
+      setError('Sign up failed. Please try again.');
+      return;
+    }
+
+    // Create donor record
+    const { data: newDonor, error: donorErr } = await supabase
+      .from('donors')
+      .insert({
+        email: trimmedEmail,
+        name: trimmedName,
+        auth_id: signUpData.user.id,
+      })
+      .select('*')
+      .single();
+
+    if (donorErr) {
+      console.error('Donor creation error:', donorErr);
+      setError('Account created but profile setup failed. Please contact support.');
+      return;
+    }
+
+    // Create profile linking auth user to donor
+    const { error: profileErr } = await supabase.from('profiles').upsert({
+      id: signUpData.user.id,
+      role: 'donor',
+      donor_id: newDonor.id,
+      email: trimmedEmail,
+    });
+
+    if (profileErr) {
+      console.error('Profile creation error:', profileErr);
+    }
+
+    // Check if email confirmation is required
+    if (!signUpData.session && !signUpData.user.email_confirmed_at) {
+      setStage('verify-email');
+      setInfoMessage('We sent a verification link to ' + trimmedEmail + '. Please check your inbox and click the link to verify your account.');
+      return;
+    }
+
+    // If session was created (email confirmation disabled), navigate
+    setIsAdmin(false);
+    setRole('donor');
+    setDonor(newDonor);
+    router.replace('/(donor-tabs)');
+  };
 
   const handleContinue = async () => {
     const trimmedEmail = email.trim().toLowerCase();
@@ -62,119 +172,11 @@ export default function DonorLoginScreen() {
     setLoading(true);
 
     try {
-      // Try signing in first
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: trimmedEmail,
-        password,
-      });
-
-      if (!signInError && signInData.user) {
-        // Check email verification
-        if (!signInData.user.email_confirmed_at) {
-          setStage('verify-email');
-          setLoading(false);
-          return;
-        }
-
-        // Profile loaded by onAuthStateChange — just navigate
-        setIsAdmin(false);
-        setRole('donor');
-        router.replace('/(donor-tabs)');
-        return;
+      if (mode === 'signin') {
+        await handleSignIn(trimmedEmail);
+      } else {
+        await handleSignUp(trimmedEmail, trimmedName);
       }
-
-      // If sign-in failed because user doesn't exist, try signing up
-      if (signInError && (signInError.message.includes('Invalid login credentials') || signInError.message.includes('not confirmed'))) {
-        // For existing but unconfirmed — show verify screen
-        if (signInError.message.includes('not confirmed')) {
-          setStage('verify-email');
-          setLoading(false);
-          return;
-        }
-
-        // Invalid credentials — could be wrong password or new user
-        // Check if a donor record exists by email
-        const { data: existingDonor } = await supabase
-          .from('donors')
-          .select('id')
-          .eq('email', trimmedEmail)
-          .maybeSingle();
-
-        if (existingDonor) {
-          // Donor record exists but auth failed — wrong password
-          setError('Incorrect password. Please try again.');
-          setLoading(false);
-          return;
-        }
-
-        // No existing donor — this is a new user, sign up
-        if (!trimmedName) {
-          setError('Please enter your name to create an account.');
-          setLoading(false);
-          return;
-        }
-
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: trimmedEmail,
-          password,
-        });
-
-        if (signUpError) {
-          setError(signUpError.message);
-          setLoading(false);
-          return;
-        }
-
-        if (!signUpData.user) {
-          setError('Sign up failed. Please try again.');
-          setLoading(false);
-          return;
-        }
-
-        // Create donor record
-        const { data: newDonor, error: donorErr } = await supabase
-          .from('donors')
-          .insert({
-            email: trimmedEmail,
-            name: trimmedName,
-            auth_id: signUpData.user.id,
-          })
-          .select('*')
-          .single();
-
-        if (donorErr) {
-          console.error('Donor creation error:', donorErr);
-          setError('Account created but profile setup failed. Please contact support.');
-          setLoading(false);
-          return;
-        }
-
-        // Create profile linking auth user to donor
-        await supabase.from('profiles').upsert({
-          id: signUpData.user.id,
-          role: 'donor',
-          donor_id: newDonor.id,
-          email: trimmedEmail,
-        });
-
-        // Check if email confirmation is required
-        if (!signUpData.session && !signUpData.user.email_confirmed_at) {
-          setStage('verify-email');
-          setInfoMessage('We sent a verification link to ' + trimmedEmail + '. Please check your inbox and click the link to verify your account.');
-          setLoading(false);
-          return;
-        }
-
-        // If session was created (email confirmation disabled), navigate
-        setIsAdmin(false);
-        setRole('donor');
-        setDonor(newDonor);
-        router.replace('/(donor-tabs)');
-        return;
-      }
-
-      // Other sign-in error
-      setError(signInError?.message || 'Something went wrong. Please try again.');
     } catch (e: any) {
       setError(e.message || 'Something went wrong. Please try again.');
     } finally {
@@ -192,6 +194,7 @@ export default function DonorLoginScreen() {
       const { error: resendError } = await supabase.auth.resend({
         type: 'signup',
         email: trimmedEmail,
+        options: REDIRECT_URL ? { emailRedirectTo: REDIRECT_URL } : undefined,
       });
       if (resendError) {
         setError(resendError.message);
@@ -206,7 +209,7 @@ export default function DonorLoginScreen() {
   };
 
   const handleBackToInput = () => {
-    setStage('input');
+    setStage('form');
     setError(null);
     setInfoMessage(null);
   };
@@ -239,11 +242,31 @@ export default function DonorLoginScreen() {
             <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
               {stage === 'verify-email'
                 ? 'Verify your email to continue'
-                : 'Sign in with your email and password'}
+                : mode === 'signin'
+                  ? 'Sign in to your donor account'
+                  : 'Create a new donor account'}
             </Text>
 
-            {stage === 'input' && (
+            {stage === 'form' && (
               <>
+                {/* Mode Toggle */}
+                <View style={styles.modeToggle}>
+                  <TouchableOpacity
+                    style={[styles.modeBtn, mode === 'signin' && styles.modeBtnActive, { borderColor: mode === 'signin' ? Colors.primary : colors.cardBorder }]}
+                    onPress={() => switchMode('signin')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.modeText, mode === 'signin' && styles.modeTextActive]}>Sign In</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modeBtn, mode === 'signup' && styles.modeBtnActive, { borderColor: mode === 'signup' ? Colors.primary : colors.cardBorder }]}
+                    onPress={() => switchMode('signup')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.modeText, mode === 'signup' && styles.modeTextActive]}>Sign Up</Text>
+                  </TouchableOpacity>
+                </View>
+
                 <View style={styles.inputGroup}>
                   <Text style={[styles.label, { color: colors.textPrimary }]}>Email Address</Text>
                   <TextInput
@@ -283,19 +306,20 @@ export default function DonorLoginScreen() {
                   </View>
                 </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={[styles.label, { color: colors.textPrimary }]}>Your Name</Text>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary }]}
-                    placeholder="Enter your full name"
-                    placeholderTextColor={Colors.stone400}
-                    autoCapitalize="words"
-                    value={name}
-                    onChangeText={(t) => { setName(t); setError(null); }}
-                    editable={!loading}
-                  />
-                  <Text style={styles.hint}>Required only for new accounts</Text>
-                </View>
+                {mode === 'signup' && (
+                  <View style={styles.inputGroup}>
+                    <Text style={[styles.label, { color: colors.textPrimary }]}>Your Name</Text>
+                    <TextInput
+                      style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, color: colors.textPrimary }]}
+                      placeholder="Enter your full name"
+                      placeholderTextColor={Colors.stone400}
+                      autoCapitalize="words"
+                      value={name}
+                      onChangeText={(t) => { setName(t); setError(null); }}
+                      editable={!loading}
+                    />
+                  </View>
+                )}
 
                 {error && <Text style={styles.errorText}>{error}</Text>}
 
@@ -308,17 +332,21 @@ export default function DonorLoginScreen() {
                   {loading ? (
                     <ActivityIndicator color={Colors.white} size="small" />
                   ) : (
-                    <Text style={styles.primaryButtonText}>Continue</Text>
+                    <Text style={styles.primaryButtonText}>
+                      {mode === 'signin' ? 'Sign In' : 'Create Account'}
+                    </Text>
                   )}
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.secondaryButton}
-                  onPress={() => router.push('/forgot-password')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.secondaryButtonText}>Forgot password?</Text>
-                </TouchableOpacity>
+                {mode === 'signin' && (
+                  <TouchableOpacity
+                    style={styles.secondaryButton}
+                    onPress={() => router.push('/forgot-password')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.secondaryButtonText}>Forgot password?</Text>
+                  </TouchableOpacity>
+                )}
               </>
             )}
 
@@ -434,6 +462,32 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xxl,
     lineHeight: 20,
   },
+  modeToggle: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    width: '100%',
+    marginBottom: Spacing.lg,
+  },
+  modeBtn: {
+    flex: 1,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  modeBtnActive: {
+    backgroundColor: Colors.primaryFaint,
+  },
+  modeText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: FontSize.sm,
+    color: Colors.stone500,
+  },
+  modeTextActive: {
+    color: Colors.primary,
+  },
   inputGroup: { width: '100%', marginBottom: Spacing.lg },
   label: {
     fontFamily: 'Inter-SemiBold',
@@ -472,12 +526,6 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
   },
   eyeButton: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
-  hint: {
-    fontFamily: 'Inter-Regular',
-    fontSize: FontSize.xs,
-    color: Colors.textMuted,
-    marginTop: Spacing.xs,
-  },
   errorText: {
     fontFamily: 'Inter-SemiBold',
     fontSize: FontSize.sm,
