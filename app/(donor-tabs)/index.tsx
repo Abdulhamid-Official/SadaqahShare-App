@@ -121,7 +121,7 @@ export default function DonorHomeScreen() {
           .or(`closes_at.is.null,closes_at.gt.${now}`)
           .order('created_at', { ascending: false })
           .limit(5);
-        pollData = data;
+        pollData = (data ?? []).filter((p: any) => !p.archived);
       }
 
       if (pollData) setPolls(pollData as PollWithDetails[]);

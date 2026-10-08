@@ -18,6 +18,9 @@ import {
   DollarSign,
   Package,
   X,
+  Pencil,
+  Archive,
+  ArchiveRestore,
 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
@@ -37,9 +40,14 @@ export default function NeedsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'item' | 'money'>('item');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editNeed, setEditNeed] = useState<Need | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Need | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<Need | null>(null);
+  const [archiving, setArchiving] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   const mosqueId = mosqueAccount?.mosque_id;
 
@@ -109,7 +117,9 @@ export default function NeedsScreen() {
     }
   };
 
-  const filteredNeeds = needs.filter((n) => n.type === activeTab);
+  const filteredNeeds = needs
+    .filter((n) => n.type === activeTab)
+    .filter((n) => showArchived ? n.archived : !n.archived);
 
   const getPriorityStyle = (priority: string) => {
     switch (priority.toLowerCase()) {
@@ -121,6 +131,47 @@ export default function NeedsScreen() {
         return { bg: Colors.blueFaint, text: Colors.blue };
       default:
         return { bg: Colors.stone100, text: Colors.stone600 };
+    }
+  };
+
+  const handleEdit = (need: Need) => {
+    setEditNeed(need);
+    setShowCreateModal(true);
+  };
+
+  const handleArchive = (need: Need) => {
+    setArchiveTarget(need);
+    setArchiveError(null);
+  };
+
+  const confirmArchive = async () => {
+    if (!archiveTarget) return;
+    setArchiving(true);
+    setArchiveError(null);
+    try {
+      const newArchived = !archiveTarget.archived;
+      const { error } = await supabase
+        .from('needs')
+        .update({
+          archived: newArchived,
+          archived_at: newArchived ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', archiveTarget.id);
+      if (error) {
+        setArchiveError('Failed to archive. Please try again.');
+        return;
+      }
+      setNeeds((prev) => prev.map((n) =>
+        n.id === archiveTarget.id
+          ? { ...n, archived: newArchived, archived_at: newArchived ? new Date().toISOString() : null }
+          : n
+      ));
+      setArchiveTarget(null);
+    } catch (err) {
+      setArchiveError('Something went wrong.');
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -190,14 +241,36 @@ export default function NeedsScreen() {
               </Text>
             </View>
           </View>
-          <TouchableOpacity
-            style={styles.deleteBtn}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            onPress={() => handleDelete(item)}
-          >
-            <Trash2 size={18} color={Colors.red} />
-          </TouchableOpacity>
+          <View style={styles.cardActions}>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              onPress={() => handleEdit(item)}
+            >
+              <Pencil size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionBtn}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+              onPress={() => handleArchive(item)}
+            >
+              {item.archived ? (
+                <ArchiveRestore size={16} color={colors.textMuted} />
+              ) : (
+                <Archive size={16} color={colors.textMuted} />
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.deleteBtn}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+              onPress={() => handleDelete(item)}
+            >
+              <Trash2 size={16} color={Colors.red} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     );
@@ -232,42 +305,32 @@ export default function NeedsScreen() {
         {/* Header */}
         <Text style={[styles.screenTitle, { color: colors.textPrimary }]}>Needs</Text>
 
-        {/* Toggle Tabs */}
-        <View style={[styles.toggleRow, { backgroundColor: colors.stone100 }]}>
-          <TouchableOpacity
-            style={[
-              styles.toggleBtn,
-              activeTab === 'item' && styles.toggleBtnActive,
-              activeTab === 'item' && { backgroundColor: colors.cardBg },
-            ]}
-            activeOpacity={0.7}
-            onPress={() => setActiveTab('item')}
-          >
-            <Text
-              style={[
-                styles.toggleText, { color: colors.textMuted },
-                activeTab === 'item' && styles.toggleTextActive,
-              ]}
+        {/* Toggle Tabs + Archive Toggle */}
+        <View style={styles.toggleContainer}>
+          <View style={[styles.toggleRow, { backgroundColor: colors.stone100, flex: 1 }]}>
+            <TouchableOpacity
+              style={[styles.toggleBtn, activeTab === 'item' && styles.toggleBtnActive, activeTab === 'item' && { backgroundColor: colors.cardBg }]}
+              activeOpacity={0.7}
+              onPress={() => setActiveTab('item')}
             >
-              Items
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.toggleBtn,
-              activeTab === 'money' && styles.toggleBtnActive,
-              activeTab === 'money' && { backgroundColor: colors.cardBg },
-            ]}
-            activeOpacity={0.7}
-            onPress={() => setActiveTab('money')}
-          >
-            <Text
-              style={[
-                styles.toggleText, { color: colors.textMuted },
-                activeTab === 'money' && styles.toggleTextActive,
-              ]}
+              <Text style={[styles.toggleText, { color: colors.textMuted }, activeTab === 'item' && styles.toggleTextActive]}>Items</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.toggleBtn, activeTab === 'money' && styles.toggleBtnActive, activeTab === 'money' && { backgroundColor: colors.cardBg }]}
+              activeOpacity={0.7}
+              onPress={() => setActiveTab('money')}
             >
-              Fundraisers
+              <Text style={[styles.toggleText, { color: colors.textMuted }, activeTab === 'money' && styles.toggleTextActive]}>Fundraisers</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity
+            style={[styles.archiveToggle, { backgroundColor: showArchived ? colors.primaryFaint : colors.stone100, borderColor: showArchived ? Colors.teal : 'transparent' }]}
+            activeOpacity={0.7}
+            onPress={() => setShowArchived(!showArchived)}
+          >
+            {showArchived ? <ArchiveRestore size={14} color={Colors.teal} /> : <Archive size={14} color={colors.textMuted} />}
+            <Text style={[styles.archiveToggleText, { color: showArchived ? Colors.teal : colors.textMuted }]}>
+              {showArchived ? 'Archived' : 'Archive'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -295,7 +358,7 @@ export default function NeedsScreen() {
       <TouchableOpacity
         style={styles.fab}
         activeOpacity={0.8}
-        onPress={() => setShowCreateModal(true)}
+        onPress={() => { setEditNeed(null); setShowCreateModal(true); }}
       >
         <Plus size={28} color={Colors.white} strokeWidth={2.5} />
       </TouchableOpacity>
@@ -303,12 +366,51 @@ export default function NeedsScreen() {
       {showCreateModal && (
         <CreateNeedModal
           visible={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
+          onClose={() => { setShowCreateModal(false); setEditNeed(null); }}
           mosqueId={mosqueId!}
           defaultType={activeTab}
-          onCreated={() => { setShowCreateModal(false); fetchNeeds(); }}
+          editNeed={editNeed}
+          onCreated={() => { setShowCreateModal(false); setEditNeed(null); fetchNeeds(); }}
         />
       )}
+
+      {/* Archive Confirmation Modal */}
+      <Modal visible={archiveTarget !== null} transparent animationType="fade">
+        <View style={styles.overlay}>
+          <TouchableOpacity style={[styles.backdrop, { backgroundColor: colors.modalOverlay }]} activeOpacity={1} onPress={() => setArchiveTarget(null)} />
+          <View style={[styles.confirmCard, { backgroundColor: colors.cardBg }]}>
+            <TouchableOpacity style={styles.closeBtn} onPress={() => setArchiveTarget(null)}>
+              <X size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <Text style={[styles.confirmTitle, { color: colors.textPrimary }]}>
+              {archiveTarget?.archived ? 'Restore' : 'Archive'} {activeTab === 'money' ? 'Fundraiser' : 'Item'}
+            </Text>
+            <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
+              {archiveTarget?.archived
+                ? `Restore "${archiveTarget?.name}" to active status?`
+                : `Archive "${archiveTarget?.name}"? It will be hidden from donors but can be restored later.`}
+            </Text>
+            {archiveError ? <Text style={styles.deleteErrorText}>{archiveError}</Text> : null}
+            <View style={styles.confirmButtons}>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setArchiveTarget(null)} activeOpacity={0.7}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.deleteConfirmButton, archiving && { opacity: 0.7 }, { backgroundColor: Colors.teal }]}
+                onPress={confirmArchive}
+                activeOpacity={0.7}
+                disabled={archiving}
+              >
+                {archiving ? (
+                  <ActivityIndicator size="small" color={Colors.white} />
+                ) : (
+                  <Text style={styles.deleteConfirmText}>{archiveTarget?.archived ? 'Restore' : 'Archive'}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Delete Confirmation Modal */}
       <Modal visible={deleteTarget !== null} transparent animationType="fade">
@@ -514,12 +616,44 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   deleteBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: Colors.redFaint,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  actionBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  archiveToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  archiveToggleText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: FontSize.xs,
   },
 
   /* Empty */

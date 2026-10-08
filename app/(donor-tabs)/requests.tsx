@@ -12,7 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MessageSquare, Plus, X, Send } from 'lucide-react-native';
+import { MessageSquare, Plus, X, Send, Pencil, Trash2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
@@ -23,7 +23,9 @@ interface RequestItem {
   title: string;
   description: string | null;
   mosque_name: string;
+  mosque_id: string;
   created_at: string;
+  archived: boolean;
 }
 
 interface JoinedMosque {
@@ -44,11 +46,15 @@ export default function DonorRequestsScreen() {
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<RequestItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const fetchRequests = useCallback(async () => {
     if (isAdmin) {
       setRequests([
-        { id: '1', title: 'Quran Study Circle', description: 'Weekly group sessions.', mosque_name: 'Demo Mosque', created_at: new Date().toISOString() },
+        { id: '1', title: 'Quran Study Circle', description: 'Weekly group sessions.', mosque_name: 'Demo Mosque', mosque_id: 'admin-mosque', created_at: new Date().toISOString(), archived: false },
       ]);
       setMosques([{ mosque_id: 'admin-mosque', mosque_name: 'Demo Mosque (Admin)' }]);
       setLoading(false);
@@ -74,7 +80,7 @@ export default function DonorRequestsScreen() {
       // Fetch requests
       const { data, error: fetchErr } = await supabase
         .from('donor_requests')
-        .select('id, title, description, mosque_id, created_at')
+        .select('id, title, description, mosque_id, archived, created_at')
         .eq('donor_id', donor.id)
         .order('created_at', { ascending: false });
       if (fetchErr) throw fetchErr;
@@ -91,10 +97,12 @@ export default function DonorRequestsScreen() {
           title: r.title,
           description: r.description,
           mosque_name: mosque?.name || 'Unknown',
+          mosque_id: r.mosque_id,
           created_at: r.created_at,
+          archived: r.archived ?? false,
         });
       }
-      setRequests(enriched);
+      setRequests(enriched.filter((r) => !r.archived));
     } catch (err) {
       console.error(err);
     } finally {
@@ -103,8 +111,40 @@ export default function DonorRequestsScreen() {
   }, [donor, isAdmin]);
 
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
-
   useRealtimeTable("donor_requests", donor ? "donor_id=eq." + donor.id : null, fetchRequests, !!donor && !isAdmin);
+
+  const handleEdit = (item: RequestItem) => {
+    setEditId(item.id);
+    setTitle(item.title);
+    setDescription(item.description ?? '');
+    setSelectedMosque(item.mosque_id);
+    setError(null);
+    setShowCreate(true);
+  };
+
+  const handleDelete = (item: RequestItem) => {
+    setDeleteTarget(item);
+    setDeleteError(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const { error: delErr } = await supabase
+        .from('donor_requests')
+        .delete()
+        .eq('id', deleteTarget.id);
+      if (delErr) throw delErr;
+      setRequests((prev) => prev.filter((r) => r.id !== deleteTarget.id));
+      setDeleteTarget(null);
+    } catch (e: any) {
+      setDeleteError(e.message || 'Failed to delete.');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!title.trim()) { setError('Please enter a title.'); return; }
@@ -116,7 +156,9 @@ export default function DonorRequestsScreen() {
         title: title.trim(),
         description: description.trim() || null,
         mosque_name: 'Demo Mosque (Admin)',
+        mosque_id: 'admin-mosque',
         created_at: new Date().toISOString(),
+        archived: false,
       }, ...prev]);
       setShowCreate(false);
       setTitle('');
@@ -130,18 +172,31 @@ export default function DonorRequestsScreen() {
     setError(null);
 
     try {
-      const { error: insertErr } = await supabase.from('donor_requests').insert({
-        donor_id: donor.id,
-        mosque_id: selectedMosque,
-        title: title.trim(),
-        description: description.trim() || null,
-      });
-      if (insertErr) throw insertErr;
+      if (editId) {
+        const { error: updateErr } = await supabase
+          .from('donor_requests')
+          .update({
+            title: title.trim(),
+            description: description.trim() || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editId);
+        if (updateErr) throw updateErr;
+      } else {
+        const { error: insertErr } = await supabase.from('donor_requests').insert({
+          donor_id: donor.id,
+          mosque_id: selectedMosque,
+          title: title.trim(),
+          description: description.trim() || null,
+        });
+        if (insertErr) throw insertErr;
+      }
 
       setShowCreate(false);
       setTitle('');
       setDescription('');
       setSelectedMosque(null);
+      setEditId(null);
       fetchRequests();
     } catch (e: any) {
       setError(e.message || 'Something went wrong.');
@@ -158,7 +213,13 @@ export default function DonorRequestsScreen() {
           <Text style={[styles.headerSubtitle, { color: colors.textMuted }]}>Request items or services from your mosque</Text>
         </View>
         {mosques.length > 0 && (
-          <TouchableOpacity style={styles.createBtn} onPress={() => setShowCreate(true)} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.createBtn} onPress={() => {
+            setEditId(null);
+            setTitle('');
+            setDescription('');
+            setSelectedMosque(null);
+            setShowCreate(true);
+          }} activeOpacity={0.7}>
             <Plus size={18} color={Colors.white} />
             <Text style={styles.createBtnText}>New</Text>
           </TouchableOpacity>
@@ -181,7 +242,17 @@ export default function DonorRequestsScreen() {
         <ScrollView contentContainerStyle={styles.list}>
           {requests.map((r) => (
             <View key={r.id} style={[styles.requestCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}>
-              <Text style={[styles.requestTitle, { color: colors.textPrimary }]}>{r.title}</Text>
+              <View style={styles.requestCardHeader}>
+                <Text style={[styles.requestTitle, { color: colors.textPrimary, flex: 1 }]}>{r.title}</Text>
+                <View style={styles.cardActions}>
+                  <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }} onPress={() => handleEdit(r)}>
+                    <Pencil size={15} color={colors.textMuted} />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }} onPress={() => handleDelete(r)}>
+                    <Trash2 size={15} color={Colors.red} />
+                  </TouchableOpacity>
+                </View>
+              </View>
               {r.description && <Text style={[styles.requestDesc, { color: colors.textSecondary }]}>{r.description}</Text>}
               <View style={styles.requestMeta}>
                 <Text style={styles.requestMosque}>{r.mosque_name}</Text>
@@ -198,8 +269,8 @@ export default function DonorRequestsScreen() {
           <TouchableOpacity style={[styles.backdrop, { backgroundColor: colors.modalOverlay }]} activeOpacity={1} onPress={() => setShowCreate(false)} />
           <View style={[styles.modalCard, { backgroundColor: colors.cardBg }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>New Request</Text>
-              <TouchableOpacity style={styles.closeBtn} onPress={() => setShowCreate(false)}>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{editId ? 'Edit Request' : 'New Request'}</Text>
+              <TouchableOpacity style={styles.closeBtn} onPress={() => { setShowCreate(false); setEditId(null); }}>
                 <X size={20} color={Colors.textSecondary} />
               </TouchableOpacity>
             </View>
@@ -254,12 +325,34 @@ export default function DonorRequestsScreen() {
               ) : (
                 <>
                   <Send size={18} color={Colors.white} />
-                  <Text style={styles.submitBtnText}>Submit Request</Text>
+                  <Text style={styles.submitBtnText}>{editId ? 'Save' : 'Submit Request'}</Text>
                 </>
               )}
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal visible={deleteTarget !== null} transparent animationType="fade">
+        <View style={styles.overlay}>
+          <TouchableOpacity style={[styles.backdrop, { backgroundColor: colors.modalOverlay }]} activeOpacity={1} onPress={() => setDeleteTarget(null)} />
+          <View style={[styles.modalCard, { backgroundColor: colors.cardBg }]}>
+            <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Delete Request</Text>
+            <Text style={[styles.requestDesc, { color: colors.textSecondary, marginBottom: Spacing.lg }]}>
+              Delete "{deleteTarget?.title}"? This action cannot be undone.
+            </Text>
+            {deleteError ? <Text style={styles.errorText}>{deleteError}</Text> : null}
+            <View style={styles.confirmButtons}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setDeleteTarget(null)} activeOpacity={0.7}>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.deleteBtn, deleting && { opacity: 0.7 }]} onPress={confirmDelete} activeOpacity={0.7} disabled={deleting}>
+                {deleting ? <ActivityIndicator size="small" color={Colors.white} /> : <Text style={styles.deleteBtnText}>Delete</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -309,4 +402,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary, borderRadius: Radius.md, paddingVertical: Spacing.lg, marginTop: Spacing.xl, minHeight: 52,
   },
   submitBtnText: { fontFamily: 'Inter-Bold', fontSize: FontSize.md, color: Colors.white },
+  requestCardHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: Spacing.sm, marginBottom: Spacing.xs },
+  cardActions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  actionBtn: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+  confirmButtons: { flexDirection: 'row', gap: Spacing.md, marginTop: Spacing.md },
+  cancelBtn: { flex: 1, backgroundColor: Colors.stone100, borderRadius: Radius.md, paddingVertical: Spacing.lg, alignItems: 'center', justifyContent: 'center', minHeight: 48 },
+  cancelBtnText: { fontFamily: 'Inter-SemiBold', fontSize: FontSize.md, color: Colors.textSecondary },
+  deleteBtn: { flex: 1, backgroundColor: Colors.red, borderRadius: Radius.md, paddingVertical: Spacing.lg, alignItems: 'center', justifyContent: 'center', minHeight: 48 },
+  deleteBtnText: { fontFamily: 'Inter-Bold', fontSize: FontSize.md, color: Colors.white },
 });

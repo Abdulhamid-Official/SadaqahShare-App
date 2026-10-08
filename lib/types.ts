@@ -26,6 +26,9 @@ export interface Need {
   type: 'item' | 'money';
   amount_dollars: number | null;
   created_at: string;
+  updated_at: string | null;
+  archived: boolean;
+  archived_at: string | null;
 }
 
 export interface Donor {
@@ -68,6 +71,9 @@ export interface Poll {
   max_votes_per_person: number;
   closes_at: string | null;
   created_at: string;
+  updated_at: string | null;
+  archived: boolean;
+  archived_at: string | null;
 }
 
 export interface PollOption {
@@ -108,7 +114,23 @@ export interface DonorRequest {
   mosque_id: string;
   title: string;
   description: string | null;
+  status: string;
   created_at: string;
+  updated_at: string | null;
+  archived: boolean;
+  archived_at: string | null;
+}
+
+export interface Announcement {
+  id: string;
+  mosque_id: string;
+  title: string;
+  body: string | null;
+  pinned: boolean;
+  archived: boolean;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string | null;
 }
 
 export type UserRole = 'donor' | 'mosque' | null;

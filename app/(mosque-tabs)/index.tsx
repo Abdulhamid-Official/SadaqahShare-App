@@ -19,6 +19,7 @@ import {
   BarChart3,
   ChevronRight,
   MapPin,
+  Megaphone,
 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
@@ -40,6 +41,7 @@ export default function DashboardScreen() {
   const [tokensDistributed, setTokensDistributed] = useState(0);
   const [recentPledges, setRecentPledges] = useState<PledgeWithNeed[]>([]);
   const [activePollsCount, setActivePollsCount] = useState(0);
+  const [announcementsCount, setAnnouncementsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -53,6 +55,7 @@ export default function DashboardScreen() {
       setItemsPledged(12);
       setTokensDistributed(150);
       setActivePollsCount(1);
+      setAnnouncementsCount(2);
       setRecentPledges([]);
       setLoading(false);
       setRefreshing(false);
@@ -60,7 +63,7 @@ export default function DashboardScreen() {
     }
 
     try {
-      const [needsRes, pledgesRes, pollsRes] = await Promise.all([
+      const [needsRes, pledgesRes, pollsRes, annRes] = await Promise.all([
         supabase
           .from('needs')
           .select('id, quantity_pledged')
@@ -75,6 +78,11 @@ export default function DashboardScreen() {
           .select('id, status')
           .eq('mosque_id', mosqueId)
           .eq('status', 'active'),
+        supabase
+          .from('announcements')
+          .select('id')
+          .eq('mosque_id', mosqueId)
+          .eq('archived', false),
       ]);
 
       if (needsRes.data) {
@@ -98,6 +106,10 @@ export default function DashboardScreen() {
 
       if (pollsRes.data) {
         setActivePollsCount(pollsRes.data.length);
+      }
+
+      if (annRes.data) {
+        setAnnouncementsCount(annRes.data.length);
       }
     } catch (err) {
       console.error('Dashboard fetch error:', err);
@@ -274,6 +286,29 @@ export default function DashboardScreen() {
                 </Text>
                 <Text style={[styles.pollsSummaryHint, { color: colors.textMuted }]}>
                   Manage community polls
+                </Text>
+              </View>
+            </View>
+            <ChevronRight size={20} color={colors.stone400} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Announcements */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Announcements</Text>
+          <TouchableOpacity
+            style={[styles.pollsSummaryCard, { backgroundColor: colors.cardBg, borderColor: colors.cardBorder }]}
+            activeOpacity={0.7}
+            onPress={() => router.push('/(mosque-tabs)/announcements' as any)}
+          >
+            <View style={styles.pollsSummaryLeft}>
+              <Megaphone size={24} color={Colors.teal} />
+              <View style={styles.pollsSummaryInfo}>
+                <Text style={[styles.pollsSummaryCount, { color: colors.textPrimary }]}>
+                  {announcementsCount} Announcement{announcementsCount !== 1 ? 's' : ''}
+                </Text>
+                <Text style={[styles.pollsSummaryHint, { color: colors.textMuted }]}>
+                  Post updates for your community
                 </Text>
               </View>
             </View>

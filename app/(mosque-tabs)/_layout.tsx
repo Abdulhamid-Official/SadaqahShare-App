@@ -9,6 +9,7 @@ import {
   Users,
   MessageSquare,
   Settings,
+  Megaphone,
 } from 'lucide-react-native';
 import { Colors, Spacing, useTheme } from '@/lib/theme';
 
@@ -77,6 +78,7 @@ export default function MosqueTabsLayout() {
         />
       ))}
       <Tabs.Screen name="polls" options={{ href: null, headerShown: false }} />
+      <Tabs.Screen name="announcements" options={{ href: null, headerShown: false }} />
       <Tabs.Screen name="join-code" options={{ href: null, headerShown: false }} />
     </Tabs>
   );

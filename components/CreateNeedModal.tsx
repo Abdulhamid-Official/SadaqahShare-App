@@ -15,6 +15,7 @@ import { X, Link as LinkIcon, DollarSign, Package } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 import { useDeviceSize } from '@/lib/responsive';
+import { Need } from '@/lib/types';
 
 interface CreateNeedModalProps {
   visible: boolean;
@@ -22,6 +23,7 @@ interface CreateNeedModalProps {
   mosqueId: string;
   onCreated: () => void;
   defaultType?: 'item' | 'money';
+  editNeed?: Need | null;
 }
 
 type NeedType = 'item' | 'money';
@@ -83,6 +85,7 @@ export default function CreateNeedModal({
   mosqueId,
   onCreated,
   defaultType,
+  editNeed,
 }: CreateNeedModalProps) {
   const deviceSize = useDeviceSize();
   const isTablet = deviceSize !== 'phone';
@@ -104,23 +107,38 @@ export default function CreateNeedModal({
   // Track whether the user manually edited tokens
   const tokensManuallyEdited = useRef(false);
 
+  const isEditing = !!editNeed;
+
   // Reset state when modal opens
   useEffect(() => {
     if (visible) {
-      setNeedType(defaultType ?? 'item');
-      setName('');
-      setDescription('');
-      setCategory('General');
-      setQuantity('1');
-      setPriority('Medium');
-      setTokensPerUnit(String(PRIORITY_TOKENS.Medium));
-      setPurchaseLink('');
-      setAmountDollars('');
+      if (editNeed) {
+        setNeedType(editNeed.type);
+        setName(editNeed.name);
+        setDescription(editNeed.description ?? '');
+        setCategory(editNeed.category);
+        setQuantity(String(editNeed.quantity_needed));
+        setPriority(editNeed.priority as Priority);
+        setTokensPerUnit(String(editNeed.tokens_per_unit));
+        setPurchaseLink(editNeed.purchase_link ?? '');
+        setAmountDollars(editNeed.amount_dollars != null ? String(editNeed.amount_dollars) : '');
+        tokensManuallyEdited.current = true;
+      } else {
+        setNeedType(defaultType ?? 'item');
+        setName('');
+        setDescription('');
+        setCategory('General');
+        setQuantity('1');
+        setPriority('Medium');
+        setTokensPerUnit(String(PRIORITY_TOKENS.Medium));
+        setPurchaseLink('');
+        setAmountDollars('');
+        tokensManuallyEdited.current = false;
+      }
       setError(null);
       setSubmitting(false);
-      tokensManuallyEdited.current = false;
     }
-  }, [visible]);
+  }, [visible, editNeed, defaultType]);
 
   const handlePriorityChange = (p: Priority) => {
     setPriority(p);
@@ -183,23 +201,29 @@ export default function CreateNeedModal({
     setError(null);
 
     try {
-      const insertData: Record<string, unknown> = {
-        mosque_id: mosqueId,
+      const payload: Record<string, unknown> = {
         name: name.trim(),
         description: description.trim() || null,
         category: needType === 'money' ? 'General' : category,
         quantity_needed: parseInt(quantity, 10),
-        quantity_pledged: 0,
         priority,
         tokens_per_unit: parseInt(tokensPerUnit, 10),
         type: needType,
         amount_dollars: needType === 'money' ? parseFloat(amountDollars) : null,
         purchase_link: needType === 'item' && purchaseLink.trim() ? purchaseLink.trim() : null,
+        updated_at: new Date().toISOString(),
       };
 
-      const { error: insertErr } = await supabase.from('needs').insert(insertData);
+      let opErr;
+      if (isEditing && editNeed) {
+        const { error } = await supabase.from('needs').update(payload).eq('id', editNeed.id);
+        opErr = error;
+      } else {
+        const { error } = await supabase.from('needs').insert({ ...payload, mosque_id: mosqueId, quantity_pledged: 0 });
+        opErr = error;
+      }
 
-      if (insertErr) throw insertErr;
+      if (opErr) throw opErr;
 
       onCreated();
       onClose();
@@ -226,7 +250,7 @@ export default function CreateNeedModal({
             {/* Header */}
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>
-                Create {needType === 'item' ? 'Item' : 'Fundraiser'}
+                {isEditing ? 'Edit' : 'Create'} {needType === 'item' ? 'Item' : 'Fundraiser'}
               </Text>
               <TouchableOpacity style={[styles.closeBtn, { backgroundColor: colors.stone100 }]} onPress={onClose} activeOpacity={0.7}>
                 <X size={22} color={colors.textSecondary} />
@@ -455,7 +479,7 @@ export default function CreateNeedModal({
                   <ActivityIndicator size="small" color={Colors.white} />
                 ) : (
                   <Text style={styles.submitBtnText}>
-                    Create {needType === 'item' ? 'Item' : 'Fundraiser'}
+                    {isEditing ? 'Save' : 'Create'} {needType === 'item' ? 'Item' : 'Fundraiser'}
                   </Text>
                 )}
               </TouchableOpacity>

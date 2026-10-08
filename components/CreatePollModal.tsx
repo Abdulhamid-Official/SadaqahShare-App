@@ -15,12 +15,15 @@ import { X, Plus } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
 import { useDeviceSize } from '@/lib/responsive';
+import { Poll, PollOption } from '@/lib/types';
 
 interface CreatePollModalProps {
   visible: boolean;
   onClose: () => void;
   mosqueId: string;
   onCreated: () => void;
+  editPoll?: Poll | null;
+  editOptions?: PollOption[];
 }
 
 type DurationOption = '1 Day' | '3 Days' | '1 Week' | '2 Weeks' | '1 Month' | 'No Limit';
@@ -51,6 +54,8 @@ export default function CreatePollModal({
   onClose,
   mosqueId,
   onCreated,
+  editPoll,
+  editOptions,
 }: CreatePollModalProps) {
   const deviceSize = useDeviceSize();
   const isTablet = deviceSize !== 'phone';
@@ -66,19 +71,40 @@ export default function CreatePollModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isEditing = !!editPoll;
+
   // Reset state when modal opens
   useEffect(() => {
     if (visible) {
-      setQuestion('');
-      setDescription('');
-      setOptions(['', '']);
-      setDuration('1 Week');
-      setTokensToVote('5');
-      setMaxVotes('1');
+      if (editPoll && editOptions) {
+        setQuestion(editPoll.question);
+        setDescription(editPoll.description ?? '');
+        setOptions(editOptions.length >= 2 ? editOptions.map(o => o.option_text) : ['', '']);
+        setTokensToVote(String(editPoll.tokens_to_vote));
+        setMaxVotes(String(editPoll.max_votes_per_person));
+        // Determine duration from closes_at
+        if (editPoll.closes_at) {
+          const diff = new Date(editPoll.closes_at).getTime() - Date.now();
+          if (diff <= 24 * 60 * 60 * 1000) setDuration('1 Day');
+          else if (diff <= 3 * 24 * 60 * 60 * 1000) setDuration('3 Days');
+          else if (diff <= 7 * 24 * 60 * 60 * 1000) setDuration('1 Week');
+          else if (diff <= 14 * 24 * 60 * 60 * 1000) setDuration('2 Weeks');
+          else setDuration('1 Month');
+        } else {
+          setDuration('No Limit');
+        }
+      } else {
+        setQuestion('');
+        setDescription('');
+        setOptions(['', '']);
+        setDuration('1 Week');
+        setTokensToVote('5');
+        setMaxVotes('1');
+      }
       setError(null);
       setSubmitting(false);
     }
-  }, [visible]);
+  }, [visible, editPoll, editOptions]);
 
   const updateOption = (index: number, text: string) => {
     setOptions((prev) => {
@@ -130,38 +156,83 @@ export default function CreatePollModal({
       const tokens = Math.max(1, parseInt(tokensToVote, 10) || 1);
       const votes = Math.max(1, parseInt(maxVotes, 10) || 1);
 
-      // 1. Insert poll
-      const { data: pollData, error: pollErr } = await supabase
-        .from('polls')
-        .insert({
-          mosque_id: mosqueId,
-          question: question.trim(),
-          description: description.trim() || null,
-          status: 'active',
-          tokens_to_vote: tokens,
-          max_votes_per_person: votes,
-          closes_at: closesAt,
-        })
-        .select('id')
-        .single();
-
-      if (pollErr) throw pollErr;
-
-      // 2. Insert poll options (filter out empty)
       const nonEmptyOptions = options
         .map((o) => o.trim())
         .filter((o) => o.length > 0);
 
-      const optionInserts = nonEmptyOptions.map((text) => ({
-        poll_id: pollData.id,
-        option_text: text,
-      }));
+      if (isEditing && editPoll) {
+        // Update poll
+        const { error: pollErr } = await supabase
+          .from('polls')
+          .update({
+            question: question.trim(),
+            description: description.trim() || null,
+            tokens_to_vote: tokens,
+            max_votes_per_person: votes,
+            closes_at: closesAt,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editPoll.id);
 
-      const { error: optionsErr } = await supabase
-        .from('poll_options')
-        .insert(optionInserts);
+        if (pollErr) throw pollErr;
 
-      if (optionsErr) throw optionsErr;
+        // Fetch existing options
+        const { data: existingOpts, error: fetchErr } = await supabase
+          .from('poll_options')
+          .select('id, option_text')
+          .eq('poll_id', editPoll.id);
+        if (fetchErr) throw fetchErr;
+
+        const existingMap = new Map((existingOpts || []).map((o: any) => [o.option_text, o.id]));
+        const newTexts = new Set(nonEmptyOptions);
+
+        // Delete options that were removed
+        const toDelete = (existingOpts || []).filter((o: any) => !newTexts.has(o.option_text));
+        if (toDelete.length > 0) {
+          const { error: delErr } = await supabase
+            .from('poll_options')
+            .delete()
+            .in('id', toDelete.map((o: any) => o.id));
+          if (delErr) throw delErr;
+        }
+
+        // Insert new options (texts that don't exist yet)
+        const toInsert = nonEmptyOptions.filter((t) => !existingMap.has(t));
+        if (toInsert.length > 0) {
+          const { error: insErr } = await supabase
+            .from('poll_options')
+            .insert(toInsert.map((text) => ({ poll_id: editPoll.id, option_text: text })));
+          if (insErr) throw insErr;
+        }
+      } else {
+        // Insert poll
+        const { data: pollData, error: pollErr } = await supabase
+          .from('polls')
+          .insert({
+            mosque_id: mosqueId,
+            question: question.trim(),
+            description: description.trim() || null,
+            status: 'active',
+            tokens_to_vote: tokens,
+            max_votes_per_person: votes,
+            closes_at: closesAt,
+          })
+          .select('id')
+          .single();
+
+        if (pollErr) throw pollErr;
+
+        const optionInserts = nonEmptyOptions.map((text) => ({
+          poll_id: pollData.id,
+          option_text: text,
+        }));
+
+        const { error: optionsErr } = await supabase
+          .from('poll_options')
+          .insert(optionInserts);
+
+        if (optionsErr) throw optionsErr;
+      }
 
       onCreated();
       onClose();
@@ -187,7 +258,7 @@ export default function CreatePollModal({
           >
             {/* Header */}
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>Create Poll</Text>
+              <Text style={[styles.modalTitle, { color: colors.textPrimary }]}>{isEditing ? 'Edit Poll' : 'Create Poll'}</Text>
               <TouchableOpacity style={[styles.closeBtn, { backgroundColor: colors.stone100 }]} onPress={onClose} activeOpacity={0.7}>
                 <X size={22} color={colors.textSecondary} />
               </TouchableOpacity>
@@ -340,7 +411,7 @@ export default function CreatePollModal({
                 {submitting ? (
                   <ActivityIndicator size="small" color={Colors.white} />
                 ) : (
-                  <Text style={styles.submitBtnText}>Create Poll</Text>
+                  <Text style={styles.submitBtnText}>{isEditing ? 'Save Poll' : 'Create Poll'}</Text>
                 )}
               </TouchableOpacity>
             </View>

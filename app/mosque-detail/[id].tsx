@@ -77,7 +77,7 @@ export default function MosqueDetailScreen() {
       if (mosqueRes.error) throw mosqueRes.error;
       if (needsRes.error) throw needsRes.error;
       setMosque(mosqueRes.data);
-      setNeeds(needsRes.data ?? []);
+      setNeeds((needsRes.data ?? []).filter((n: Need) => !n.archived));
 
       if (isAdmin) {
         setIsMember(true);
@@ -104,7 +104,7 @@ export default function MosqueDetailScreen() {
   useRealtimeTable('needs', id ? `mosque_id=eq.${id}` : null, loadData, !!id);
   useRealtimeTable('pledges', null, loadData, !!id);
 
-  const filteredNeeds = needs.filter((n) => n.type === activeTab);
+  const filteredNeeds = needs.filter((n) => n.type === activeTab && !n.archived);
 
   const handlePledgeClose = useCallback(() => {
     setPledgeNeed(null);

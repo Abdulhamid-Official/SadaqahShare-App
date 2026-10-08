@@ -19,6 +19,9 @@ import {
   XCircle,
   BarChart3,
   X,
+  Pencil,
+  Archive,
+  ArchiveRestore,
 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
@@ -46,6 +49,10 @@ export default function PollsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editPoll, setEditPoll] = useState<Poll | null>(null);
+  const [editOptions, setEditOptions] = useState<PollOption[]>([]);
+  const [archiveTarget, setArchiveTarget] = useState<PollWithDetails | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<PollWithDetails | null>(null);
   const [closeTarget, setCloseTarget] = useState<PollWithDetails | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -217,6 +224,50 @@ export default function PollsScreen() {
     return `${minutes}m left`;
   };
 
+  const handleEditPoll = (poll: PollWithDetails) => {
+    setEditPoll(poll);
+    setEditOptions(poll.options.map((o) => ({ id: o.id, poll_id: o.poll_id, option_text: o.option_text, created_at: o.created_at })));
+    setShowCreateModal(true);
+  };
+
+  const handleArchivePoll = (poll: PollWithDetails) => {
+    setArchiveTarget(poll);
+    setActionError(null);
+  };
+
+  const confirmArchivePoll = async () => {
+    if (!archiveTarget) return;
+    setActionLoading(true);
+    setActionError(null);
+    try {
+      const newArchived = !archiveTarget.archived;
+      const { error } = await supabase
+        .from('polls')
+        .update({
+          archived: newArchived,
+          archived_at: newArchived ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', archiveTarget.id);
+      if (error) {
+        setActionError('Failed to archive poll.');
+        return;
+      }
+      setPolls((prev) => prev.map((p) =>
+        p.id === archiveTarget.id
+          ? { ...p, archived: newArchived, archived_at: newArchived ? new Date().toISOString() : null }
+          : p
+      ));
+      setArchiveTarget(null);
+    } catch (err) {
+      setActionError('Something went wrong.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const visiblePolls = polls.filter((p) => showArchived ? p.archived : !p.archived);
+
   const renderPollCard = ({ item }: { item: PollWithDetails }) => {
     const displayStatus = computeDisplayStatus(item);
     const status = getStatusStyle(displayStatus);
@@ -310,6 +361,26 @@ export default function PollsScreen() {
             </TouchableOpacity>
           )}
           <TouchableOpacity
+            style={styles.editPollBtn}
+            activeOpacity={0.7}
+            onPress={() => handleEditPoll(item)}
+          >
+            <Pencil size={16} color={colors.textMuted} />
+            <Text style={styles.editPollBtnText}>Edit</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.archivePollBtn}
+            activeOpacity={0.7}
+            onPress={() => handleArchivePoll(item)}
+          >
+            {item.archived ? (
+              <ArchiveRestore size={16} color={colors.textMuted} />
+            ) : (
+              <Archive size={16} color={colors.textMuted} />
+            )}
+            <Text style={styles.archivePollBtnText}>{item.archived ? 'Restore' : 'Archive'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={styles.deletePollBtn}
             activeOpacity={0.7}
             onPress={() => handleDeletePoll(item)}
@@ -348,7 +419,7 @@ export default function PollsScreen() {
         <Text style={[styles.screenTitle, { color: colors.textPrimary }]}>Polls</Text>
 
         <FlatList
-          data={polls}
+          data={visiblePolls}
           keyExtractor={(item) => item.id}
           renderItem={renderPollCard}
           ListEmptyComponent={renderEmpty}
@@ -369,7 +440,7 @@ export default function PollsScreen() {
       <TouchableOpacity
         style={styles.fab}
         activeOpacity={0.8}
-        onPress={() => setShowCreateModal(true)}
+        onPress={() => { setEditPoll(null); setEditOptions([]); setShowCreateModal(true); }}
       >
         <Plus size={28} color={Colors.white} strokeWidth={2.5} />
       </TouchableOpacity>
@@ -377,9 +448,11 @@ export default function PollsScreen() {
       {showCreateModal && (
         <CreatePollModal
           visible={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
+          onClose={() => { setShowCreateModal(false); setEditPoll(null); setEditOptions([]); }}
           mosqueId={mosqueId!}
-          onCreated={() => { setShowCreateModal(false); fetchPolls(); }}
+          editPoll={editPoll}
+          editOptions={editOptions}
+          onCreated={() => { setShowCreateModal(false); setEditPoll(null); setEditOptions([]); fetchPolls(); }}
         />
       )}
 
@@ -407,6 +480,40 @@ export default function PollsScreen() {
                 disabled={actionLoading}
               >
                 {actionLoading ? <ActivityIndicator size="small" color={Colors.white} /> : <Text style={styles.deleteConfirmText}>Delete</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Archive Poll Modal */}
+      <Modal visible={archiveTarget !== null} transparent animationType="fade">
+        <View style={styles.overlay}>
+          <TouchableOpacity style={[styles.backdrop, { backgroundColor: colors.modalOverlay }]} activeOpacity={1} onPress={() => setArchiveTarget(null)} />
+          <View style={[styles.confirmCard, { backgroundColor: colors.cardBg }]}>
+            <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setArchiveTarget(null)}>
+              <X size={20} color={colors.textSecondary} />
+            </TouchableOpacity>
+            <Text style={[styles.confirmTitle, { color: colors.textPrimary }]}>
+              {archiveTarget?.archived ? 'Restore Poll' : 'Archive Poll'}
+            </Text>
+            <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
+              {archiveTarget?.archived
+                ? `Restore "${archiveTarget?.question}" to active status?`
+                : `Archive "${archiveTarget?.question}"? It will be hidden from donors but can be restored later.`}
+            </Text>
+            {actionError ? <Text style={styles.actionErrorText}>{actionError}</Text> : null}
+            <View style={styles.confirmButtons}>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setArchiveTarget(null)} activeOpacity={0.7}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.closeConfirmButton, actionLoading && { opacity: 0.7 }]}
+                onPress={confirmArchivePoll}
+                activeOpacity={0.7}
+                disabled={actionLoading}
+              >
+                {actionLoading ? <ActivityIndicator size="small" color={Colors.white} /> : <Text style={styles.deleteConfirmText}>{archiveTarget?.archived ? 'Restore' : 'Archive'}</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -613,6 +720,36 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-SemiBold',
     fontSize: FontSize.sm,
     color: Colors.amber,
+  },
+  editPollBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.stone100,
+    borderRadius: Radius.sm,
+    minHeight: 44,
+  },
+  editPollBtnText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: FontSize.sm,
+    color: Colors.stone600,
+  },
+  archivePollBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.stone100,
+    borderRadius: Radius.sm,
+    minHeight: 44,
+  },
+  archivePollBtnText: {
+    fontFamily: 'Inter-SemiBold',
+    fontSize: FontSize.sm,
+    color: Colors.stone600,
   },
   deletePollBtn: {
     flexDirection: 'row',
