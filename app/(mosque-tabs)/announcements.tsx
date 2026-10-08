@@ -20,7 +20,9 @@ import {
   Pin,
   Megaphone,
   X,
+  ArrowLeft,
 } from 'lucide-react-native';
+import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
@@ -236,6 +238,9 @@ export default function AnnouncementsScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={[styles.container, { paddingHorizontal, maxWidth, alignSelf: maxWidth ? 'center' : undefined, width: maxWidth ? '100%' : undefined }]}>
         <View style={styles.headerRow}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
+            <ArrowLeft size={22} color={colors.stone600} />
+          </TouchableOpacity>
           <Text style={[styles.screenTitle, { color: colors.textPrimary }]}>Announcements</Text>
           <TouchableOpacity
             style={[styles.archiveToggle, { backgroundColor: showArchived ? colors.stone100 : colors.stone100, borderColor: showArchived ? Colors.teal : 'transparent' }]}
@@ -364,8 +369,9 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   container: { flex: 1, paddingTop: Spacing.xxl },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.lg },
-  screenTitle: { fontFamily: 'Inter-Bold', fontSize: FontSize.xxl, color: Colors.textPrimary },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.lg, gap: Spacing.sm },
+  backBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center', marginLeft: -Spacing.sm },
+  screenTitle: { fontFamily: 'Inter-Bold', fontSize: FontSize.xxl, color: Colors.textPrimary, flex: 1 },
   archiveToggle: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,

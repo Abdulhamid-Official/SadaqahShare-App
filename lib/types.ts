@@ -115,6 +115,7 @@ export interface DonorRequest {
   title: string;
   description: string | null;
   status: string;
+  read_at: string | null;
   created_at: string;
   updated_at: string | null;
   archived: boolean;

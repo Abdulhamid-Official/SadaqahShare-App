@@ -12,7 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MessageSquare, Plus, X, Send, Pencil, Trash2 } from 'lucide-react-native';
+import { MessageSquare, Plus, X, Send, Pencil, Trash2, CheckCircle2, XCircle, MailOpen } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
@@ -24,6 +24,8 @@ interface RequestItem {
   description: string | null;
   mosque_name: string;
   mosque_id: string;
+  status: string;
+  read_at: string | null;
   created_at: string;
   archived: boolean;
 }
@@ -54,7 +56,7 @@ export default function DonorRequestsScreen() {
   const fetchRequests = useCallback(async () => {
     if (isAdmin) {
       setRequests([
-        { id: '1', title: 'Quran Study Circle', description: 'Weekly group sessions.', mosque_name: 'Demo Mosque', mosque_id: 'admin-mosque', created_at: new Date().toISOString(), archived: false },
+        { id: '1', title: 'Quran Study Circle', description: 'Weekly group sessions.', mosque_name: 'Demo Mosque', mosque_id: 'admin-mosque', status: 'active', read_at: null, created_at: new Date().toISOString(), archived: false },
       ]);
       setMosques([{ mosque_id: 'admin-mosque', mosque_name: 'Demo Mosque (Admin)' }]);
       setLoading(false);
@@ -80,7 +82,7 @@ export default function DonorRequestsScreen() {
       // Fetch requests
       const { data, error: fetchErr } = await supabase
         .from('donor_requests')
-        .select('id, title, description, mosque_id, archived, created_at')
+        .select('id, title, description, mosque_id, status, read_at, archived, created_at')
         .eq('donor_id', donor.id)
         .order('created_at', { ascending: false });
       if (fetchErr) throw fetchErr;
@@ -98,6 +100,8 @@ export default function DonorRequestsScreen() {
           description: r.description,
           mosque_name: mosque?.name || 'Unknown',
           mosque_id: r.mosque_id,
+          status: r.status ?? 'active',
+          read_at: r.read_at ?? null,
           created_at: r.created_at,
           archived: r.archived ?? false,
         });
@@ -157,6 +161,8 @@ export default function DonorRequestsScreen() {
         description: description.trim() || null,
         mosque_name: 'Demo Mosque (Admin)',
         mosque_id: 'admin-mosque',
+        status: 'active',
+        read_at: null,
         created_at: new Date().toISOString(),
         archived: false,
       }, ...prev]);
@@ -255,7 +261,29 @@ export default function DonorRequestsScreen() {
               </View>
               {r.description && <Text style={[styles.requestDesc, { color: colors.textSecondary }]}>{r.description}</Text>}
               <View style={styles.requestMeta}>
-                <Text style={styles.requestMosque}>{r.mosque_name}</Text>
+                <View style={styles.statusRow}>
+                  {r.status === 'accepted' ? (
+                    <View style={styles.badgeAccepted}>
+                      <CheckCircle2 size={11} color={Colors.primary} />
+                      <Text style={styles.badgeAcceptedText}>Accepted</Text>
+                    </View>
+                  ) : r.status === 'declined' ? (
+                    <View style={styles.badgeDeclined}>
+                      <XCircle size={11} color={Colors.red} />
+                      <Text style={styles.badgeDeclinedText}>Declined</Text>
+                    </View>
+                  ) : r.read_at !== null ? (
+                    <View style={styles.badgeRead}>
+                      <MailOpen size={11} color={Colors.stone500} />
+                      <Text style={styles.badgeReadText}>Read</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.badgeSent}>
+                      <Text style={styles.badgeSentText}>Sent</Text>
+                    </View>
+                  )}
+                  <Text style={styles.requestMosque}>{r.mosque_name}</Text>
+                </View>
                 <Text style={styles.requestDate}>{new Date(r.created_at).toLocaleDateString()}</Text>
               </View>
             </View>
@@ -376,6 +404,15 @@ const styles = StyleSheet.create({
   requestTitle: { fontFamily: 'Inter-SemiBold', fontSize: FontSize.md, color: Colors.textPrimary, marginBottom: Spacing.xs },
   requestDesc: { fontFamily: 'Inter-Regular', fontSize: FontSize.sm, color: Colors.textSecondary, lineHeight: 20, marginBottom: Spacing.md },
   requestMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  badgeAccepted: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primaryFaint, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: Radius.full },
+  badgeAcceptedText: { fontFamily: 'Inter-SemiBold', fontSize: FontSize.xs, color: Colors.primary },
+  badgeDeclined: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.redFaint, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: Radius.full },
+  badgeDeclinedText: { fontFamily: 'Inter-SemiBold', fontSize: FontSize.xs, color: Colors.red },
+  badgeRead: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.stone100, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: Radius.full },
+  badgeReadText: { fontFamily: 'Inter-SemiBold', fontSize: FontSize.xs, color: Colors.stone500 },
+  badgeSent: { backgroundColor: Colors.blueFaint, paddingHorizontal: Spacing.sm, paddingVertical: 2, borderRadius: Radius.full },
+  badgeSentText: { fontFamily: 'Inter-SemiBold', fontSize: FontSize.xs, color: Colors.blue },
   requestMosque: { fontFamily: 'Inter-Regular', fontSize: FontSize.xs, color: Colors.primary },
   requestDate: { fontFamily: 'Inter-Regular', fontSize: FontSize.xs, color: Colors.stone400 },
   // Modal

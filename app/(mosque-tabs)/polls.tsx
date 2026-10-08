@@ -22,7 +22,9 @@ import {
   Pencil,
   Archive,
   ArchiveRestore,
+  ArrowLeft,
 } from 'lucide-react-native';
+import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/lib/context';
 import { Colors, Spacing, Radius, FontSize, useTheme } from '@/lib/theme';
@@ -416,7 +418,12 @@ export default function PollsScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
       <View style={[styles.container, { paddingHorizontal, maxWidth, alignSelf: maxWidth ? 'center' : undefined, width: maxWidth ? '100%' : undefined }]}>
-        <Text style={[styles.screenTitle, { color: colors.textPrimary }]}>Polls</Text>
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.7}>
+            <ArrowLeft size={22} color={colors.stone600} />
+          </TouchableOpacity>
+          <Text style={[styles.screenTitle, { color: colors.textPrimary }]}>Polls</Text>
+        </View>
 
         <FlatList
           data={visiblePolls}
@@ -572,6 +579,20 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xxl,
     color: Colors.textPrimary,
     marginBottom: Spacing.lg,
+    flex: 1,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  backBtn: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: -Spacing.sm,
   },
   listContent: {
     paddingBottom: Spacing.huge + 40,
