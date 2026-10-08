@@ -206,7 +206,11 @@ export default function MosqueRegisterScreen() {
       });
 
       if (authError) {
-        setError(authError.message);
+        if (authError.message.includes('already registered') || authError.message.includes('User already')) {
+          setError('An account with this email already exists. Please sign in instead.');
+        } else {
+          setError(authError.message);
+        }
         setLoading(false);
         return;
       }

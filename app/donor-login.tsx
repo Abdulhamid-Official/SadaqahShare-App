@@ -22,7 +22,7 @@ type Stage = 'form' | 'verify-email';
 
 const REDIRECT_URL =
   typeof window !== 'undefined' && window.location?.origin
-    ? `${window.location.origin}/reset-password`
+    ? `${window.location.origin}/donor-login`
     : undefined;
 
 export default function DonorLoginScreen() {
@@ -90,7 +90,11 @@ export default function DonorLoginScreen() {
     });
 
     if (signUpError) {
-      setError(signUpError.message);
+      if (signUpError.message.includes('already registered') || signUpError.message.includes('User already')) {
+        setError('An account with this email already exists. Switch to Sign In to continue.');
+      } else {
+        setError(signUpError.message);
+      }
       return;
     }
 
