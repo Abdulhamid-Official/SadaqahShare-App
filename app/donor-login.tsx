@@ -99,11 +99,61 @@ export default function DonorLoginScreen() {
 
     if (signUpError) {
       if (signUpError.message.includes('already registered') || signUpError.message.includes('User already')) {
-        setError('An account with this email already exists. Switch to Sign In to continue.');
+        // The auth account exists. Try signing in — if it works, check whether
+        // the profile is missing and recover it. If the password is wrong, tell
+        // the user to sign in instead.
+        const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+          email: trimmedEmail,
+          password,
+        });
+        if (signInErr) {
+          setError('An account with this email already exists. Switch to Sign In to continue.');
+          return;
+        }
+        if (!signInData.user) {
+          setError('An account with this email already exists. Switch to Sign In to continue.');
+          return;
+        }
+        // Auth succeeded — check if profile exists
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id, role, donor_id')
+          .eq('id', signInData.user.id)
+          .maybeSingle();
+        if (existingProfile) {
+          setError('An account with this email already exists. Switch to Sign In to continue.');
+          return;
+        }
+        // Profile is missing — recover by creating donor + profile now
+        const { data: newDonor, error: donorErr } = await supabase
+          .from('donors')
+          .insert({ email: trimmedEmail, name: trimmedName, auth_id: signInData.user.id })
+          .select('*')
+          .single();
+        if (donorErr) {
+          console.error('Donor recovery error:', donorErr);
+          setError('Account exists but profile setup failed. Please contact support at SadaqahShare@protonmail.com.');
+          return;
+        }
+        await supabase.from('profiles').upsert({
+          id: signInData.user.id,
+          role: 'donor',
+          donor_id: newDonor.id,
+          email: trimmedEmail,
+          terms_accepted: true,
+          terms_accepted_at: new Date().toISOString(),
+          privacy_accepted: true,
+          privacy_accepted_at: new Date().toISOString(),
+          policy_version: '1.0',
+        });
+        setIsAdmin(false);
+        setRole('donor');
+        router.replace('/(donor-tabs)');
+        return;
       } else {
         setError(signUpError.message);
+        return;
       }
-      return;
     }
 
     if (!signUpData.user) {

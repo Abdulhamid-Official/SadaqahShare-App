@@ -201,6 +201,9 @@ export default function MosqueRegisterScreen() {
 
     try {
       const trimmedEmailLower = email.trim().toLowerCase();
+      let authId: string;
+      let authSession = null;
+      let authUser: { email_confirmed_at?: string | null } | null = null;
 
       // 1. Create Supabase Auth account (no custom redirect — use Supabase default Site URL)
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -210,21 +213,46 @@ export default function MosqueRegisterScreen() {
 
       if (authError) {
         if (authError.message.includes('already registered') || authError.message.includes('User already')) {
-          setError('An account with this email already exists. Please sign in instead.');
+          // Auth account exists. Try signing in — if password matches, check for
+          // missing profile and recover. Otherwise tell user to sign in.
+          const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+            email: trimmedEmailLower,
+            password,
+          });
+          if (signInErr || !signInData.user) {
+            setError('An account with this email already exists. Please sign in instead.');
+            setLoading(false);
+            return;
+          }
+          const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('id, role')
+            .eq('id', signInData.user.id)
+            .maybeSingle();
+          if (existingProfile) {
+            setError('An account with this email already exists. Please sign in instead.');
+            setLoading(false);
+            return;
+          }
+          // Profile missing — recover by creating mosque + account + profile
+          authId = signInData.user.id;
+          authUser = signInData.user;
+          authSession = signInData.session;
         } else {
           setError(authError.message);
+          setLoading(false);
+          return;
         }
-        setLoading(false);
-        return;
+      } else {
+        if (!authData.user) {
+          setError('Account creation failed. Please try again.');
+          setLoading(false);
+          return;
+        }
+        authId = authData.user.id;
+        authUser = authData.user;
+        authSession = authData.session;
       }
-
-      if (!authData.user) {
-        setError('Account creation failed. Please try again.');
-        setLoading(false);
-        return;
-      }
-
-      const authId = authData.user.id;
 
       // 2. Insert mosque
       const { data: mosqueData, error: mosqueError } = await supabase
@@ -316,7 +344,7 @@ export default function MosqueRegisterScreen() {
       setIsPaid(false);
 
       // 7. Check if email confirmation is needed
-      if (!authData.session && !authData.user.email_confirmed_at) {
+      if (!authSession && !(authUser as any)?.email_confirmed_at) {
         setSuccess(true);
         setTimeout(() => {
           router.replace('/mosque-login' as any);
