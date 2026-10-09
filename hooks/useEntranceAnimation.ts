@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useSharedValue, useAnimatedStyle, withTiming, withDelay, Easing, interpolate, withSpring } from 'react-native-reanimated';
 
-const SPRING_CONFIG = { damping: 18, stiffness: 120, mass: 0.8 };
+const SPRING_CONFIG = { damping: 22, stiffness: 180, mass: 0.6 };
 
 export function useFadeInUp(delay = 0, distance = 24) {
   const progress = useSharedValue(0);

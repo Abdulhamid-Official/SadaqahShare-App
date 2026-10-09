@@ -52,7 +52,6 @@ export default function NeedsScreen() {
   const mosqueId = mosqueAccount?.mosque_id;
 
   const fetchNeeds = useCallback(async () => {
-    if (!mosqueId) return;
     if (isAdmin) {
       setNeeds([]);
       setLoading(false);

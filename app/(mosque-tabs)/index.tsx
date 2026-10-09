@@ -48,8 +48,6 @@ export default function DashboardScreen() {
   const mosqueId = mosqueAccount?.mosque_id;
 
   const fetchData = useCallback(async () => {
-    if (!mosqueId) return;
-
     if (isAdmin) {
       setNeedsCount(3);
       setItemsPledged(12);

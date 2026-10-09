@@ -52,7 +52,6 @@ export default function AnnouncementsScreen() {
   const mosqueId = mosqueAccount?.mosque_id;
 
   const fetchAnnouncements = useCallback(async () => {
-    if (!mosqueId) return;
     if (isAdmin) {
       setAnnouncements([]);
       setLoading(false);

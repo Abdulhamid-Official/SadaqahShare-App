@@ -44,9 +44,13 @@ export default function ForgotPasswordScreen() {
 
     try {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-        trimmedEmail
+        trimmedEmail,
+        { redirectTo: `${window.location.origin}/reset-password` }
       );
 
+      if (resetError) {
+        // Don't show the error to avoid revealing whether the email exists
+      }
       // Always show success — don't reveal whether the email exists
       setSent(true);
     } catch (e: any) {

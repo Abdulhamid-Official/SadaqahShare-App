@@ -65,7 +65,6 @@ export default function PollsScreen() {
   const mosqueId = mosqueAccount?.mosque_id;
 
   const fetchPolls = useCallback(async () => {
-    if (!mosqueId) return;
     if (isAdmin) {
       setPolls([]);
       setLoading(false);

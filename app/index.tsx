@@ -61,15 +61,15 @@ export default function LandingPage() {
   const router = useRouter();
   const { paddingHorizontal, maxWidth } = useContentWidth();
   const { colors } = useTheme();
-  const heroStyle = useFadeInUp(0, 30);
-  const pillStyle = useScaleIn(100);
-  const ctaStyle = useFadeInUp(400, 20);
-  const sectionStyle = useFadeInUp(500, 20);
-  const bottomCtaStyle = useFadeInUp(800, 20);
-  const helpCard0 = useFadeInUp(600, 20);
-  const helpCard1 = useFadeInUp(680, 20);
-  const helpCard2 = useFadeInUp(760, 20);
-  const helpCard3 = useFadeInUp(840, 20);
+  const heroStyle = useFadeInUp(0, 20);
+  const pillStyle = useScaleIn(80);
+  const ctaStyle = useFadeInUp(200, 16);
+  const sectionStyle = useFadeInUp(280, 16);
+  const bottomCtaStyle = useFadeInUp(400, 16);
+  const helpCard0 = useFadeInUp(320, 16);
+  const helpCard1 = useFadeInUp(360, 16);
+  const helpCard2 = useFadeInUp(400, 16);
+  const helpCard3 = useFadeInUp(440, 16);
   const helpCardStyles = [helpCard0, helpCard1, helpCard2, helpCard3];
 
   return (
